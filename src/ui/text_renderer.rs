@@ -30,7 +30,7 @@ impl TextRenderer {
             gl::BindVertexArray(0);
         }
 
-        let font_data = std::fs::read("C:\\Windows\\Fonts\\arial.ttf").expect("Could not find font file");
+        let font_data = std::fs::read("assets/fonts/DejaVuSans.ttf").expect("Could not find font file");
         let font = Font::try_from_vec(font_data).expect("Error constructing Font");
 
         Self {

@@ -55,11 +55,13 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Self {
+        println!("Initializing Game...");
         // Load shaders
         let colored_shader = Rc::new(
             Shader::from_files("assets/shaders/lit.vert", "assets/shaders/lit_color.frag")
                 .expect("Failed to create colored shader"),
         );
+        println!("Colored shader loaded.");
 
         let textured_shader = Rc::new(
             Shader::from_files(
@@ -68,35 +70,43 @@ impl Game {
             )
             .expect("Failed to create textured shader"),
         );
+        println!("Textured shader loaded.");
 
         let ui_shader = Rc::new(
             Shader::from_files("assets/shaders/ui.vert", "assets/shaders/ui_text.frag")
                 .expect("Failed to create UI text shader"),
         );
+        println!("UI shader loaded.");
 
         let ui_rect_shader = Rc::new(
             Shader::from_files("assets/shaders/ui.vert", "assets/shaders/ui_color.frag")
                 .expect("Failed to create UI rect shader"),
         );
+        println!("UI rect shader loaded.");
 
         let skybox_shader = Rc::new(
             Shader::from_files("assets/shaders/skybox.vert", "assets/shaders/skybox.frag")
                 .expect("Failed to create skybox shader"),
         );
+        println!("Skybox shader loaded.");
 
         // Load textures
         let texture =
-            Texture::from_file("assets/resources/textures/photo-wall-texture-pattern.jpg")
+            Texture::from_file("assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg")
                 .expect("Failed to load texture");
+        println!("Texture loaded.");
 
         let skybox_cubemap =
             CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
                 .expect("Failed to load skybox cubemap");
+        println!("Skybox cubemap loaded.");
 
         let text_renderer = TextRenderer::new(ui_shader.clone());
+        println!("TextRenderer initialized.");
 
         // Shadow map (2048x2048 resolution)
         let shadow_map = ShadowMap::new(2048, 2048);
+        println!("Shadow map initialized.");
 
         let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.5, 1.0, 32.0);
 

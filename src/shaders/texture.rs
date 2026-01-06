@@ -42,10 +42,12 @@ impl Texture {
     }
 
     pub fn from_file(path: &str) -> Result<Texture, String> {
+        println!("Loading texture from: {}", path);
         let img = image::open(path).map_err(|e| e.to_string())?;
         let img = img.flipv(); // OpenGL expects (0,0) at bottom-left
         let width = img.width();
         let height = img.height();
+        println!("Texture loaded: {}x{} pixels", width, height);
         
         let (data, format) = match img.color() {
             image::ColorType::Rgb8 => (img.to_rgb8().into_raw(), gl::RGB),

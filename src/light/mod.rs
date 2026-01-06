@@ -6,13 +6,9 @@ pub mod spotlight;
 use glam::Vec3;
 use crate::shaders::Shader;
 
-// Re-export components
-pub use components::{LightProperties, Attenuation, SpotCone};
-
 // Re-export light types
 pub use directional::DirectionalLight;
 pub use point::PointLight;
-pub use spotlight::SpotLight;
 
 /// Common trait for all light types
 pub trait Light {

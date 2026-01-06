@@ -1,6 +1,8 @@
+#![allow(dead_code)]
 use std::ops::{Add, Sub, Mul};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
 pub struct Vector3D {
     pub x: f32,
     pub y: f32,
@@ -12,6 +14,7 @@ impl Vector3D {
     pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0 };
     pub const UP: Self = Self { x: 0.0, y: 1.0, z: 0.0 };
 
+    #[allow(dead_code)]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }

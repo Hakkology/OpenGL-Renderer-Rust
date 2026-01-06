@@ -106,6 +106,7 @@ impl<T: Renderable> SceneObject3D<T> {
     }
 }
 
+#[allow(dead_code)]
 pub struct SceneObject2D<T: Renderable> {
     pub transform: Transform2D,
     pub renderable: T,

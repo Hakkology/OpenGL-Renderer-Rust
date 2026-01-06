@@ -1,6 +1,8 @@
+#![allow(dead_code)]
 use std::ops::{Add, Sub, Mul, Div};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
 pub struct Vector2D {
     pub x: f32,
     pub y: f32,

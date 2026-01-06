@@ -9,7 +9,7 @@ use crate::primitives::{Capsule, Cube, Skybox, Sphere};
 use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
 use crate::time::Time;
-use crate::scene::object::{Renderable, SceneObject3D};
+use crate::scene::object::SceneObject3D;
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
 use crate::scene::context::RenderContext;
 use crate::ui::{Button, TextRenderer};
@@ -22,26 +22,17 @@ pub trait RenderMode {
     fn render(&mut self);
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time);
 }
-
 pub struct Game {
-    // Meshes
-    cube_mesh: Rc<Cube>,
-    sphere_mesh: Rc<Sphere>,
-    capsule_mesh: Rc<Capsule>,
-
     // Scene Objects
     center_cube: SceneObject3D<Rc<Cube>>,
     green_cube: SceneObject3D<Rc<Cube>>,
     red_cube: SceneObject3D<Rc<Cube>>,
     orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
     capsules: Vec<SceneObject3D<Rc<Capsule>>>,
-
+    
     skybox: Skybox,
 
-    // Shaders
-    colored_shader: Rc<Shader>,
-    textured_shader: Rc<Shader>,
-    ui_shader: Rc<Shader>,
+    // Shaders necessary for dynamic UI elements
     ui_rect_shader: Rc<Shader>,
     skybox_shader: Rc<Shader>,
 
@@ -61,7 +52,6 @@ pub struct Game {
     point_light: PointLight,
 
     // State
-    time: f32,
     light_space_matrix: Mat4,
     selected_object_id: Option<usize>,
     inspector: Inspector,
@@ -195,9 +185,6 @@ impl Game {
         }
 
         Self {
-            cube_mesh,
-            sphere_mesh,
-            capsule_mesh,
             center_cube,
             green_cube,
             red_cube,
@@ -205,20 +192,19 @@ impl Game {
             capsules,
             
             skybox: Skybox::new(),
-            colored_shader,
-            textured_shader,
-            ui_shader,
             ui_rect_shader,
             skybox_shader,
             skybox_cubemap,
-            text_renderer,
-            pause_button: Button::new("Pause", 1100.0, 20.0, 140.0, 40.0), // Top right corner
+            
+            text_renderer: TextRenderer::new(ui_shader),
+            pause_button: Button::new("Pause", 1170.0, 660.0, 100.0, 40.0),
+            
             input: Input::new(),
             camera: OrbitCamera::new(),
             shadow_map,
             light,
             point_light: PointLight::simple(Vec3::new(3.0, 3.0, 3.0), 0.05, 0.8, 1.0, 32.0),
-            time: 0.0,
+            
             light_space_matrix: Mat4::IDENTITY,
             selected_object_id: None,
             inspector: Inspector::new(1070.0, 500.0),
@@ -253,23 +239,16 @@ impl Game {
             .set_light_space_matrix(&self.light_space_matrix);
 
         // Draw objects to depth map
-        self.shadow_map.set_model(&self.center_cube.transform.to_matrix());
-        self.center_cube.renderable.draw();
-        
-        self.shadow_map.set_model(&self.green_cube.transform.to_matrix());
-        self.green_cube.renderable.draw();
-        
-        self.shadow_map.set_model(&self.red_cube.transform.to_matrix());
-        self.red_cube.renderable.draw();
+        self.center_cube.render_depth(&self.shadow_map.shader);
+        self.green_cube.render_depth(&self.shadow_map.shader);
+        self.red_cube.render_depth(&self.shadow_map.shader);
 
         for obj in &self.orbiting_spheres {
-            self.shadow_map.set_model(&obj.transform.to_matrix());
-            obj.renderable.draw();
+            obj.render_depth(&self.shadow_map.shader);
         }
         
         for obj in &self.capsules {
-            self.shadow_map.set_model(&obj.transform.to_matrix());
-            obj.renderable.draw();
+            obj.render_depth(&self.shadow_map.shader);
         }
 
         self.shadow_map.end_pass(1280, 720);

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+extern crate gl;
 use glam::Vec3;
 use crate::shaders::Shader;
 
@@ -87,6 +89,7 @@ impl Attenuation {
 
 /// Cone shape for spotlights
 #[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
 pub struct SpotCone {
     pub cut_off: f32,
     pub outer_cut_off: f32,

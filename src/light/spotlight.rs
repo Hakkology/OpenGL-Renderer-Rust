@@ -3,6 +3,7 @@ use crate::shaders::Shader;
 use super::components::{LightProperties, SpotCone};
 use super::Light;
 
+#[allow(dead_code)]
 pub struct SpotLight {
     pub position: Vec3,
     pub direction: Vec3,

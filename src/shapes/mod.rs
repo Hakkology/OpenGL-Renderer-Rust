@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub mod triangle;
 pub mod rectangle;
 pub mod circle;
@@ -7,11 +8,13 @@ pub use triangle::Triangle;
 pub use rectangle::Rectangle;
 pub use circle::Circle;
 
+#[allow(dead_code)]
 pub trait Shape {
     fn init(&mut self);
     fn draw(&self);
 }
 
+#[allow(dead_code)]
 pub enum ShapeEnum {
     Triangle(Triangle),
     Rectangle(Rectangle),

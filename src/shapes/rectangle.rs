@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 extern crate gl;
 
 use std::rc::Rc;
@@ -8,6 +9,7 @@ use crate::shaders::Shader;
 use crate::math::Vector2D;
 use super::Shape;
 
+#[allow(dead_code)]
 pub struct Rectangle {
     vao: GLuint,
     vbo: GLuint,

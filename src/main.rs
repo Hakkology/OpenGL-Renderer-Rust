@@ -9,6 +9,7 @@ mod shapes;
 mod light;
 mod math;
 mod primitives;
+mod scene;
 mod game;
 mod ui;
 mod time;

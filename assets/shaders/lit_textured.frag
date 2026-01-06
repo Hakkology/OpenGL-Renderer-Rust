@@ -83,16 +83,30 @@ vec3 calcPointLight(vec3 norm, vec3 viewDir) {
     return ambient + diffuse + specular;
 }
 
+// Toggles
+uniform int u_UseLighting;
+uniform int u_UseShadows;
+
 void main() {
     vec4 texColor = texture(u_Texture, TexCoord);
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 lightDirNorm = normalize(-lightDir);
-    
-    float shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
+    vec3 result;
 
-    vec3 result = calcDirLight(norm, viewDir, shadow);
-    result += calcPointLight(norm, viewDir);
+    if (u_UseLighting == 0) {
+        result = vec3(1.0); // Unlit logic: just pure white multiplier (returns texture color)
+    } else {
+        vec3 norm = normalize(Normal);
+        vec3 viewDir = normalize(viewPos - FragPos);
+        vec3 lightDirNorm = normalize(-lightDir);
+        
+        float shadow = 0.0;
+        if (u_UseShadows != 0) {
+            shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
+        }
+
+        result = calcDirLight(norm, viewDir, shadow);
+        result += calcPointLight(norm, viewDir);
+    }
+    
     result *= texColor.rgb;
 
     FragColor = vec4(result, texColor.a);

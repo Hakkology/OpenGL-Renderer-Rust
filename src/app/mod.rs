@@ -35,7 +35,7 @@ impl Application {
             self.window.clear(0.2, 0.3, 0.3, 1.0);
 
             // Modun güncelleme ve çizim fonksiyonlarını çağır
-            self.mode.update(self.time.delta_time);
+            self.mode.update(&self.time);
             self.mode.render();
 
             // Buffer swap

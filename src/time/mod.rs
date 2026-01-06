@@ -34,4 +34,9 @@ impl Time {
     pub fn toggle_pause(&mut self) {
         self.is_paused = !self.is_paused;
     }
+
+    /// Returns the total elapsed time in seconds since the start of the game (excluding paused time).
+    pub fn time(&self) -> f32 {
+        self.elapsed_time
+    }
 }

@@ -87,15 +87,29 @@ vec3 calcPointLight(vec3 norm, vec3 viewDir) {
     return ambient + diffuse + specular;
 }
 
-void main() {
-    vec3 norm = normalize(Normal);
-    vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 lightDirNorm = normalize(-lightDir);
-    
-    float shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
+// Toggles
+uniform int u_UseLighting;
+uniform int u_UseShadows;
 
-    vec3 result = calcDirLight(norm, viewDir, shadow);
-    result += calcPointLight(norm, viewDir);
+void main() {
+    vec3 result;
+    
+    if (u_UseLighting == 0) {
+        result = vec3(1.0);
+    } else {
+        vec3 norm = normalize(Normal);
+        vec3 viewDir = normalize(viewPos - FragPos);
+        vec3 lightDirNorm = normalize(-lightDir);
+        
+        float shadow = 0.0;
+        if (u_UseShadows != 0) {
+            shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
+        }
+
+        result = calcDirLight(norm, viewDir, shadow);
+        result += calcPointLight(norm, viewDir);
+    }
+    
     result *= objectColor;
 
     FragColor = vec4(result, 1.0);

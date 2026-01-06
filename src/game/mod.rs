@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Quat};
 use glfw::{Action, WindowEvent};
 use std::rc::Rc;
 
@@ -9,19 +9,30 @@ use crate::primitives::{Capsule, Cube, Skybox, Sphere};
 use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
 use crate::time::Time;
+use crate::scene::object::SceneObject3D;
+use crate::scene::material::{ColoredMaterial, TexturedMaterial};
+use crate::scene::context::RenderContext;
 use crate::ui::{Button, TextRenderer};
 
 pub trait RenderMode {
-    fn update(&mut self, delta_time: f32);
+    fn update(&mut self, time: &Time);
     fn render(&mut self);
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time);
 }
 
 pub struct Game {
-    // Primitives
-    cube: Cube,
-    sphere: Sphere,
-    capsule: Capsule,
+    // Meshes
+    cube_mesh: Rc<Cube>,
+    sphere_mesh: Rc<Sphere>,
+    capsule_mesh: Rc<Capsule>,
+
+    // Scene Objects
+    center_cube: SceneObject3D<Rc<Cube>>,
+    green_cube: SceneObject3D<Rc<Cube>>,
+    red_cube: SceneObject3D<Rc<Cube>>,
+    orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
+    capsules: Vec<SceneObject3D<Rc<Capsule>>>,
+
     skybox: Skybox,
 
     // Shaders
@@ -31,8 +42,6 @@ pub struct Game {
     ui_rect_shader: Rc<Shader>,
     skybox_shader: Rc<Shader>,
 
-    // Textures
-    texture: Texture,
     skybox_cubemap: CubeMap,
 
     // UI
@@ -90,11 +99,17 @@ impl Game {
         );
         println!("Skybox shader loaded.");
 
-        // Load textures
-        let texture =
+        let texture = Rc::new(
             Texture::from_file("assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg")
-                .expect("Failed to load texture");
+                .expect("Failed to load texture")
+        );
         println!("Texture loaded.");
+
+        let sphere_texture = Rc::new(
+            Texture::from_file("assets/resources/textures/StoneBricks_1K.tiff")
+                .expect("Failed to load sphere texture")
+        );
+        println!("Sphere texture loaded.");
 
         let skybox_cubemap =
             CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
@@ -110,17 +125,76 @@ impl Game {
 
         let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.5, 1.0, 32.0);
 
+        // Create Shared Meshes
+        let cube_mesh = Rc::new(Cube::new(1.0));
+        let sphere_mesh = Rc::new(Sphere::new(0.6, 32, 32));
+        let capsule_mesh = Rc::new(Capsule::new(0.4, 1.2, 32, 16, 16));
+
+        // Create Materials
+        let grass_material = Rc::new(TexturedMaterial {
+            shader: textured_shader.clone(),
+            texture: texture.clone(),
+            is_lit: true,
+            receive_shadows: true,
+        });
+        
+        // Stone material - Let's make it receive no shadows as a test/demo? 
+        // No, user just wants the ABILITY. Let's keep defaults but exposing them.
+        let stone_material = Rc::new(TexturedMaterial {
+            shader: textured_shader.clone(),
+            texture: sphere_texture.clone(),
+            is_lit: true,
+            receive_shadows: true,
+        });
+
+        let green_material = Rc::new(ColoredMaterial {
+            shader: colored_shader.clone(),
+            color: Vec3::new(0.5, 0.8, 0.2),
+            is_lit: true,
+            receive_shadows: true,
+        });
+
+        // Red material - Unlit demo?
+        // Let's make the red cube Unlit for demonstration if user wants.
+        // But for now let's set them all enabled.
+        let red_material = Rc::new(ColoredMaterial {
+            shader: colored_shader.clone(),
+            color: Vec3::new(1.0, 0.0, 0.0),
+            is_lit: true,
+            receive_shadows: true,
+        });
+
+        // Create Scene Objects
+        let center_cube = SceneObject3D::new(cube_mesh.clone(), grass_material.clone());
+        let green_cube = SceneObject3D::new(cube_mesh.clone(), green_material.clone());
+        let red_cube = SceneObject3D::new(cube_mesh.clone(), red_material.clone());
+        
+        let mut orbiting_spheres = Vec::new();
+        for _ in 0..2 {
+             orbiting_spheres.push(SceneObject3D::new(sphere_mesh.clone(), stone_material.clone()));
+        }
+
+        let mut capsules = Vec::new();
+        for _ in 0..2 {
+             capsules.push(SceneObject3D::new(capsule_mesh.clone(), grass_material.clone()));
+        }
+
         Self {
-            cube: Cube::new(1.0),
-            sphere: Sphere::new(0.6, 32, 32),
-            capsule: Capsule::new(0.4, 1.2, 32, 16, 16),
+            cube_mesh,
+            sphere_mesh,
+            capsule_mesh,
+            center_cube,
+            green_cube,
+            red_cube,
+            orbiting_spheres,
+            capsules,
+            
             skybox: Skybox::new(),
             colored_shader,
             textured_shader,
             ui_shader,
             ui_rect_shader,
             skybox_shader,
-            texture,
             skybox_cubemap,
             text_renderer,
             pause_button: Button::new("Pause", 640.0, 20.0, 140.0, 40.0),
@@ -143,11 +217,7 @@ impl Game {
         shader.set_int("shadowMap", 5);
     }
 
-    fn set_mvp(&self, shader: &Shader, projection: &Mat4, view: &Mat4, model: &Mat4) {
-        shader.set_mat4("projection", &projection.to_cols_array());
-        shader.set_mat4("view", &view.to_cols_array());
-        shader.set_mat4("model", &model.to_cols_array());
-    }
+
 
     fn render_skybox(&self, projection: &Mat4) {
         self.skybox_shader.use_program();
@@ -160,126 +230,58 @@ impl Game {
         self.skybox.draw();
     }
 
-    fn get_object_models(&self) -> Vec<Mat4> {
-        let mut models = Vec::new();
-
-        // Center cube
-        models.push(Mat4::IDENTITY);
-
-        // Orbiting spheres
-        for (radius, speed) in [(2.5, 1.2), (4.0, 0.8)] {
-            let x = (self.time * speed).cos() * radius;
-            let z = (self.time * speed).sin() * radius;
-            models.push(Mat4::from_translation(Vec3::new(x, 0.0, z)));
-        }
-
-        // Green cube
-        models.push(
-            Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time),
-        );
-
-        // Red cube
-        models.push(
-            Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time),
-        );
-
-        // Capsules
-        let tilt = 45.0f32.to_radians();
-        let tilt_mat = Mat4::from_rotation_z(tilt);
-        for i in 0..2 {
-            let offset = i as f32 * std::f32::consts::PI;
-            let angle = self.time * 0.7 + offset;
-            let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
-            let tilted_pos = tilt_mat.transform_point3(orbit_pos);
-            models.push(
-                Mat4::from_translation(tilted_pos)
-                    * Mat4::from_rotation_y(self.time)
-                    * Mat4::from_rotation_x(tilt),
-            );
-        }
-
-        models
-    }
-
     fn render_shadow_pass(&self) {
         self.shadow_map.begin_pass();
         self.shadow_map
             .set_light_space_matrix(&self.light_space_matrix);
 
-        let models = self.get_object_models();
-
-        // Render all objects to depth
-        for model in &models {
-            self.shadow_map.set_model(model);
-            if model == &models[0] || model == &models[1] || model == &models[2] {
-                self.cube.draw();
-            } else if models.len() > 3 && (model == &models[3] || model == &models[4]) {
-                self.cube.draw();
-            }
+        // Draw objects to depth map
+        let objects = [&self.center_cube, &self.green_cube, &self.red_cube];
+        for obj in objects {
+            self.shadow_map.set_model(&obj.transform.to_matrix());
+            obj.renderable.draw();
         }
 
-        // Simple approach: just draw all primitives for shadow
-        for model in &models[..3] {
-            self.shadow_map.set_model(model);
-            self.cube.draw();
+        for obj in &self.orbiting_spheres {
+            self.shadow_map.set_model(&obj.transform.to_matrix());
+            obj.renderable.draw();
+        }
+        
+        for obj in &self.capsules {
+            self.shadow_map.set_model(&obj.transform.to_matrix());
+            obj.renderable.draw();
         }
 
         self.shadow_map.end_pass(800, 600);
     }
 
     fn render_objects(&self, projection: &Mat4, view: &Mat4) {
-        // Center textured cube
-        self.textured_shader.use_program();
-        self.texture.bind(0);
-        self.textured_shader.set_int("u_Texture", 0);
-        self.apply_lights(&self.textured_shader);
-        self.set_mvp(&self.textured_shader, projection, view, &Mat4::IDENTITY);
-        self.cube.draw();
-
-        // Orbiting spheres
-        for (radius, speed) in [(2.5, 1.2), (4.0, 0.8)] {
-            let x = (self.time * speed).cos() * radius;
-            let z = (self.time * speed).sin() * radius;
-            let model = Mat4::from_translation(Vec3::new(x, 0.0, z));
-            self.set_mvp(&self.textured_shader, projection, view, &model);
-            self.sphere.draw();
+        let context = RenderContext {
+            projection: *projection,
+            view: *view,
+            view_pos: self.camera.position,
+            light: &self.light,
+            point_light: &self.point_light,
+            shadow_map: &self.shadow_map,
+            light_space_matrix: self.light_space_matrix,
+        };
+        
+        let objects = [
+            &self.center_cube, 
+            &self.green_cube, 
+            &self.red_cube
+        ];
+        
+        for obj in objects {
+            obj.render(&context);
         }
 
-        // Colored cubes
-        self.colored_shader.use_program();
-        self.apply_lights(&self.colored_shader);
-
-        // Green cube (top)
-        self.colored_shader.set_vec3("objectColor", 0.5, 0.8, 0.2);
-        let model =
-            Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time);
-        self.set_mvp(&self.colored_shader, projection, view, &model);
-        self.cube.draw();
-
-        // Red cube (bottom)
-        self.colored_shader.set_vec3("objectColor", 1.0, 0.0, 0.0);
-        let model =
-            Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time);
-        self.set_mvp(&self.colored_shader, projection, view, &model);
-        self.cube.draw();
-
-        // Orbiting capsules (tilted 45°)
-        self.textured_shader.use_program();
-        self.texture.bind(0);
-        self.apply_lights(&self.textured_shader);
-        let tilt = 45.0f32.to_radians();
-        let tilt_mat = Mat4::from_rotation_z(tilt);
-
-        for i in 0..2 {
-            let offset = i as f32 * std::f32::consts::PI;
-            let angle = self.time * 0.7 + offset;
-            let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
-            let tilted_pos = tilt_mat.transform_point3(orbit_pos);
-            let model = Mat4::from_translation(tilted_pos)
-                * Mat4::from_rotation_y(self.time)
-                * Mat4::from_rotation_x(tilt);
-            self.set_mvp(&self.textured_shader, projection, view, &model);
-            self.capsule.draw();
+        for obj in &self.orbiting_spheres {
+             obj.render(&context);
+        }
+        
+        for obj in &self.capsules {
+            obj.render(&context);
         }
     }
 
@@ -309,8 +311,11 @@ impl Game {
 }
 
 impl RenderMode for Game {
-    fn update(&mut self, delta_time: f32) {
-        self.time += delta_time;
+    fn update(&mut self, time: &Time) {
+        // self.time += delta_time; // No longer manual accumulation
+        let current_time = time.time();
+        let delta_time = time.delta_time;
+        
         self.camera.update(&self.input, delta_time);
 
         // Update light space matrix for shadows
@@ -319,6 +324,40 @@ impl RenderMode for Game {
                 .light_space_matrix(self.light.direction, Vec3::ZERO, 10.0);
 
         self.input.reset_delta();
+
+        // Animated Objects logic
+        // Orbiting Spheres
+        let configs = [(2.5, 1.2), (4.0, 0.8)];
+        for (i, (radius, speed)) in configs.iter().enumerate() {
+            if i < self.orbiting_spheres.len() {
+                 let x = (current_time * speed).cos() * radius;
+                 let z = (current_time * speed).sin() * radius;
+                 self.orbiting_spheres[i].transform.position = Vec3::new(x, 0.0, z);
+            }
+        }
+        
+        // Green Cube
+        self.green_cube.transform.position = Vec3::new(0.0, 2.0, 0.0);
+        self.green_cube.transform.rotation = Quat::from_rotation_y(current_time);
+        
+        // Red Cube
+        self.red_cube.transform.position = Vec3::new(0.0, -2.0, 0.0);
+        self.red_cube.transform.rotation = Quat::from_rotation_y(-current_time);
+        
+        // Capsules
+        let tilt = 45.0f32.to_radians();
+        let tilt_quat = Quat::from_rotation_z(tilt);
+        
+        for i in 0..2 {
+             if i >= self.capsules.len() { break; }
+             let offset = i as f32 * std::f32::consts::PI;
+             let angle = current_time * 0.7 + offset;
+             let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
+             let tilted_pos = tilt_quat.mul_vec3(orbit_pos);
+             
+             self.capsules[i].transform.position = tilted_pos;
+             self.capsules[i].transform.rotation = Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
+        }
     }
 
     fn render(&mut self) {

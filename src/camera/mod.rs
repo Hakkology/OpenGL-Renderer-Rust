@@ -41,10 +41,46 @@ impl OrbitCamera {
         self.distance -= input.mouse.scroll_y * self.zoom_speed;
         self.distance = self.distance.clamp(self.min_distance, self.max_distance);
 
-        // Calculate position from spherical coordinates
+        // Calculate forward vector (view direction stored in Spherical Coords)
         let yaw_rad = self.yaw.to_radians();
         let pitch_rad = self.pitch.to_radians();
         
+        let forward = Vec3::new(
+            yaw_rad.cos() * pitch_rad.cos(),
+            pitch_rad.sin(),
+            yaw_rad.sin() * pitch_rad.cos()
+        ).normalize();
+        
+        let right = forward.cross(Vec3::Y).normalize();
+
+        // WASD Movement (Moving the target/center of orbit)
+        // W/S moves forward/back relative to view
+        let move_speed = 5.0 * delta_time; // Adjustable speed
+        
+        // Project forward to XZ plane for "FPS like" movement or standard free cam
+        // User requested: "w up, A left" -> typical WASD
+        // Usually W moves "forward" in view direction.
+        // For an orbit camera, moving "forward" usually means moving the pivot closer/further or moving the pivot in the scene.
+        // Let's implement panning the pivot point on XZ plane relative to camera view.
+        
+        let flat_forward = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
+        let flat_right = Vec3::new(right.x, 0.0, right.z).normalize_or_zero();
+
+        if input.is_key_pressed(glfw::Key::W) {
+             self.target += flat_forward * move_speed;
+        }
+        if input.is_key_pressed(glfw::Key::S) {
+             self.target -= flat_forward * move_speed;
+        }
+        if input.is_key_pressed(glfw::Key::A) {
+             self.target -= flat_right * move_speed;
+        }
+        if input.is_key_pressed(glfw::Key::D) {
+             self.target += flat_right * move_speed;
+        }
+        // Optional: E/Q for Up/Down? Or just keep it planar.
+        // Let's keep it simplest for now.
+
         self.position.x = self.distance * yaw_rad.cos() * pitch_rad.cos();
         self.position.y = self.distance * pitch_rad.sin();
         self.position.z = self.distance * yaw_rad.sin() * pitch_rad.cos();

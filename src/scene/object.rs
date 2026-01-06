@@ -97,6 +97,13 @@ impl<T: Renderable> SceneObject3D<T> {
         shader.set_mat4("model", &self.transform.to_matrix().to_cols_array());
         self.renderable.draw();
     }
+
+    pub fn destroy(&mut self) {
+        // This will be called when an object is removed.
+        // Rust's Drop trait handles most resources, but we can put 
+        // manual cleanup logic here if needed.
+        println!("Destroying object: {}", self.name);
+    }
 }
 
 pub struct SceneObject2D<T: Renderable> {

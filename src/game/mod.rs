@@ -9,10 +9,12 @@ use crate::primitives::{Capsule, Cube, Skybox, Sphere};
 use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
 use crate::time::Time;
-use crate::scene::object::SceneObject3D;
+use crate::scene::object::{Renderable, SceneObject3D};
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
 use crate::scene::context::RenderContext;
 use crate::ui::{Button, TextRenderer};
+use crate::ui::inspector::Inspector;
+use crate::ui::context_menu::ContextMenu;
 use crate::math::ray::Ray;
 use crate::scene::collider::Collider;
 
@@ -34,6 +36,7 @@ pub struct Game {
     red_cube: SceneObject3D<Rc<Cube>>,
     orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
     capsules: Vec<SceneObject3D<Rc<Capsule>>>,
+    dynamic_objects: Vec<SceneObject3D<Rc<dyn Renderable>>>, // For created objects
 
     skybox: Skybox,
 
@@ -62,6 +65,9 @@ pub struct Game {
     // State
     time: f32,
     light_space_matrix: Mat4,
+    selected_object_id: Option<usize>,
+    inspector: Inspector,
+    context_menu: ContextMenu,
 }
 
 impl Game {
@@ -200,6 +206,7 @@ impl Game {
             red_cube,
             orbiting_spheres,
             capsules,
+            dynamic_objects: Vec::new(),
             
             skybox: Skybox::new(),
             colored_shader,
@@ -217,6 +224,9 @@ impl Game {
             point_light: PointLight::simple(Vec3::new(3.0, 3.0, 3.0), 0.05, 0.8, 1.0, 32.0),
             time: 0.0,
             light_space_matrix: Mat4::IDENTITY,
+            selected_object_id: None,
+            inspector: Inspector::new(1070.0, 500.0),
+            context_menu: ContextMenu::new(),
         }
     }
 
@@ -264,6 +274,11 @@ impl Game {
             obj.renderable.draw();
         }
 
+        for obj in &self.dynamic_objects {
+            self.shadow_map.set_model(&obj.transform.to_matrix());
+            obj.renderable.draw();
+        }
+
         self.shadow_map.end_pass(1280, 720);
     }
 
@@ -295,6 +310,10 @@ impl Game {
         for obj in &self.capsules {
             obj.render(&context);
         }
+
+        for obj in &self.dynamic_objects {
+            obj.render(&context);
+        }
     }
 
     fn render_ui(&self) {
@@ -318,6 +337,57 @@ impl Game {
             720.0,
         );
         self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0);
+
+        if let Some(id) = self.selected_object_id {
+             // Find selected object to get its pos/name
+             let mut found = None;
+             if self.center_cube.id == id { found = Some((&self.center_cube.name, self.center_cube.transform.position)); }
+             else if self.green_cube.id == id { found = Some((&self.green_cube.name, self.green_cube.transform.position)); }
+             else if self.red_cube.id == id { found = Some((&self.red_cube.name, self.red_cube.transform.position)); }
+             else {
+                 for obj in &self.orbiting_spheres { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } }
+                 if found.is_none() { for obj in &self.capsules { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
+                 if found.is_none() { for obj in &self.dynamic_objects { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
+             }
+
+             if let Some((name, pos)) = found {
+                 self.inspector.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0, name, pos);
+             }
+        }
+
+        self.context_menu.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0);
+    }
+
+    fn cast_ray(&self, ray: &Ray) -> Option<usize> {
+        let mut min_dist = f32::MAX;
+        let mut hit_id = None;
+        let mut check = |dist: f32, id: usize| {
+            if dist < min_dist {
+                min_dist = dist;
+                hit_id = Some(id);
+            }
+        };
+
+        if let Some(dist) = self.center_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.center_cube.transform)) { check(dist, self.center_cube.id); }
+        if let Some(dist) = self.green_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.green_cube.transform)) { check(dist, self.green_cube.id); }
+        if let Some(dist) = self.red_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.red_cube.transform)) { check(dist, self.red_cube.id); }
+        
+        for obj in &self.orbiting_spheres { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
+        for obj in &self.capsules { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
+        for obj in &self.dynamic_objects { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
+        
+        hit_id
+    }
+
+    fn apply_transform_delta(&mut self, id: usize, delta: Vec3) {
+         if self.center_cube.id == id { self.center_cube.transform.position += delta; }
+         else if self.green_cube.id == id { self.green_cube.transform.position += delta; }
+         else if self.red_cube.id == id { self.red_cube.transform.position += delta; }
+         else {
+             for obj in &mut self.orbiting_spheres { if obj.id == id { obj.transform.position += delta; return; } }
+             for obj in &mut self.capsules { if obj.id == id { obj.transform.position += delta; return; } }
+             for obj in &mut self.dynamic_objects { if obj.id == id { obj.transform.position += delta; return; } }
+         }
     }
 
 
@@ -433,10 +503,79 @@ impl RenderMode for Game {
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time) {
         self.input.handle_event(event);
 
-        if let WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) = event {
+        if let WindowEvent::MouseButton(button, Action::Press, _) = event {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
-            let ray = self.camera.screen_point_to_ray(mx, my, 1280.0, 720.0);
-            self.check_intersection(&ray);
+            
+            match button {
+                glfw::MouseButtonLeft => {
+                    // 1. Context Menu Handles
+                    let menu_action = self.context_menu.check_clicks(mx, my, 720.0);
+                    if menu_action == 1 { // Create
+                        let new_obj = SceneObject3D::new(self.cube_mesh.clone() as Rc<dyn Renderable>, 
+                             Rc::new(ColoredMaterial {
+                                 shader: self.colored_shader.clone(),
+                                 color: Vec3::new(0.2, 0.5, 0.8),
+                                 is_lit: true,
+                                 receive_shadows: true,
+                             }));
+                        self.dynamic_objects.push(new_obj);
+                        return;
+                    } else if menu_action == 2 { // Destroy
+                        if let Some(id) = self.context_menu.target_id {
+                            // Find and destroy across all collections
+                            if let Some(pos) = self.orbiting_spheres.iter().position(|o| o.id == id) {
+                                let mut obj = self.orbiting_spheres.remove(pos);
+                                obj.destroy();
+                            } else if let Some(pos) = self.capsules.iter().position(|o| o.id == id) {
+                                let mut obj = self.capsules.remove(pos);
+                                obj.destroy();
+                            } else if let Some(pos) = self.dynamic_objects.iter().position(|o| o.id == id) {
+                                let mut obj = self.dynamic_objects.remove(pos);
+                                obj.destroy();
+                            }
+                            
+                            if self.selected_object_id == Some(id) { 
+                                self.selected_object_id = None; 
+                            }
+                        }
+                        return;
+                    }
+                    
+                    if self.context_menu.is_visible {
+                        self.context_menu.hide();
+                        return;
+                    }
+
+                    // 2. Pause Button
+                    if self.pause_button.is_clicked(mx, my, 720.0) {
+                        time.toggle_pause();
+                        self.pause_button.text = if time.is_paused { "Resume".to_string() } else { "Pause".to_string() };
+                        return;
+                    }
+
+                    // 3. Inspector Interaction
+                    if self.selected_object_id.is_some() {
+                        let delta = self.inspector.check_clicks(mx, my, 720.0);
+                        if delta != Vec3::ZERO {
+                            if let Some(id) = self.selected_object_id {
+                                self.apply_transform_delta(id, delta);
+                            }
+                            return;
+                        }
+                    }
+
+                    // 4. Scene Selection (Raycast)
+                    let ray = self.camera.screen_point_to_ray(mx, my, 1280.0, 720.0);
+                    self.selected_object_id = self.cast_ray(&ray);
+                    self.check_intersection(&ray); // For debug log
+                }
+                glfw::MouseButtonRight => {
+                    let ray = self.camera.screen_point_to_ray(mx, my, 1280.0, 720.0);
+                    let hit_id = self.cast_ray(&ray);
+                    self.context_menu.show(mx, my, hit_id);
+                }
+                _ => {}
+            }
         }
     }
 }

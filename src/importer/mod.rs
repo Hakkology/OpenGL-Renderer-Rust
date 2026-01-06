@@ -1,4 +1,4 @@
-use crate::texture::Texture;
+use crate::shaders::Texture;
 use image::GenericImageView;
 
 pub mod formats;

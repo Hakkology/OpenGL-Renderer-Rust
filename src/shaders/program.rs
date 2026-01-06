@@ -77,6 +77,12 @@ impl Program {
         }
     }
 
+    pub fn set_vec3(&self, name: &str, x: f32, y: f32, z: f32) {
+        unsafe {
+            gl::Uniform3f(self.get_uniform_location(name), x, y, z);
+        }
+    }
+
     pub fn set_vec4(&self, name: &str, x: f32, y: f32, z: f32, w: f32) {
         unsafe {
             gl::Uniform4f(self.get_uniform_location(name), x, y, z, w);

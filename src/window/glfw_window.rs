@@ -22,6 +22,9 @@ impl GlWindow {
 
         window.make_current();
         window.set_key_polling(true);
+        window.set_cursor_pos_polling(true);
+        window.set_mouse_button_polling(true);
+        window.set_scroll_polling(true);
 
         GlWindow { glfw, window, events }
     }

@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 use gl::types::{GLuint, GLfloat};
 
 use crate::shaders::Shader;
-use super::Vector2D;
+use crate::math::Vector2D;
 use super::Shape;
 
 pub struct Circle {

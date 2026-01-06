@@ -27,7 +27,7 @@ impl Cube {
 
 impl Shape for Cube {
     fn init(&mut self) {
-        let vertices: [f32; 216] = [
+        let vertices: [f32; 288] = [
             // positions          // texture coords // normals (simplified, not exact)
             -0.5, -0.5, -0.5,  0.0, 0.0, 0.0, 0.0, -1.0, 
              0.5, -0.5, -0.5,  1.0, 0.0, 0.0, 0.0, -1.0,

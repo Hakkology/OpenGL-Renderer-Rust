@@ -23,7 +23,7 @@ use game::Game;
 
 fn main() {
     // 1. Pencereyi ve OpenGL context'ini oluştur
-    let mut window = GlWindow::new("OpenGL Modular Renderer", 800, 600);
+    let mut window = GlWindow::new("OpenGL Modular Renderer", 1280, 720);
     window.init_gl();
 
     // 2. Modu oluştur (Context hazır olduğu için shader/buffer yükleyebilir)

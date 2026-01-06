@@ -4,15 +4,15 @@ use crate::game::RenderMode;
 use crate::time::Time;
 
 pub struct Application {
-    window: GlWindow,
     mode: Box<dyn RenderMode>,
+    window: GlWindow,
     time: Time,
 }
 
+
 impl Application {
-    // Uygulama oluşturucu. Window ve Mode dışarıdan enjekte edilir.
     pub fn new(window: GlWindow, mode: Box<dyn RenderMode>) -> Application {
-        Application { window, mode, time: Time::new() }
+        Application { mode, window, time: Time::new() }
     }
 
     // Modu değiştirmek istersek
@@ -48,7 +48,7 @@ impl Application {
             for (_, event) in events {
                 // Global window eventleri (örn. ESC ile çıkış)
                 self.window.handle_event(&event);
-
+                
                 // Mod'a özgü eventler
                 self.mode.handle_event(&event, &mut self.time);
             }

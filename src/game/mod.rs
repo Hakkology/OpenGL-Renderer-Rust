@@ -209,7 +209,7 @@ impl Game {
             skybox_shader,
             skybox_cubemap,
             text_renderer,
-            pause_button: Button::new("Pause", 640.0, 20.0, 140.0, 40.0),
+            pause_button: Button::new("Pause", 1100.0, 20.0, 140.0, 40.0), // Top right corner
             input: Input::new(),
             camera: OrbitCamera::new(),
             shadow_map,
@@ -264,7 +264,7 @@ impl Game {
             obj.renderable.draw();
         }
 
-        self.shadow_map.end_pass(800, 600);
+        self.shadow_map.end_pass(1280, 720);
     }
 
     fn render_objects(&self, projection: &Mat4, view: &Mat4) {
@@ -301,24 +301,25 @@ impl Game {
         self.text_renderer.render_rect(
             &self.ui_rect_shader,
             10.0,
-            540.0,
+            660.0, // Adjusted for 720p (720 - 60)
             180.0,
             50.0,
             glam::Vec4::new(0.0, 0.0, 0.0, 0.5),
-            800.0,
-            600.0,
+            1280.0,
+            720.0,
         );
         self.text_renderer.render_text(
             "Hakkology",
             20.0,
-            545.0,
+            665.0,
             32.0,
             Vec3::new(1.0, 1.0, 1.0),
-            800.0,
-            600.0,
+            1280.0,
+            720.0,
         );
-        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
+        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0);
     }
+
 
     fn check_intersection(&self, ray: &Ray) {
         let mut min_dist = f32::MAX;
@@ -416,7 +417,7 @@ impl RenderMode for Game {
         // Shadow pass
         self.render_shadow_pass();
 
-        let projection = self.camera.projection_matrix(800.0 / 600.0);
+        let projection = self.camera.projection_matrix(1280.0 / 720.0);
         let view = self.camera.view_matrix();
 
         // Clear after shadow pass
@@ -434,17 +435,8 @@ impl RenderMode for Game {
 
         if let WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) = event {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
-            if self.pause_button.is_clicked(mx, my, 600.0) {
-                time.toggle_pause();
-                self.pause_button.text = if time.is_paused {
-                    "Resume".to_string()
-                } else {
-                    "Pause".to_string()
-                };
-            } else {
-                let ray = self.camera.screen_point_to_ray(mx, my, 800.0, 600.0);
-                self.check_intersection(&ray);
-            }
+            let ray = self.camera.screen_point_to_ray(mx, my, 1280.0, 720.0);
+            self.check_intersection(&ray);
         }
     }
 }

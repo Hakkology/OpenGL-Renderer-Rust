@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::camera::OrbitCamera;
 use crate::input::Input;
 use crate::light::{DirectionalLight, Light, PointLight};
-use crate::primitives::{Capsule, Cube, Skybox, Sphere};
+use crate::primitives::{Capsule, Cube, Skybox, Sphere, Plane};
 use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
 use crate::time::Time;
@@ -29,6 +29,7 @@ pub struct Game {
     red_cube: SceneObject3D<Rc<Cube>>,
     orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
     capsules: Vec<SceneObject3D<Rc<Capsule>>>,
+    floor: SceneObject3D<Rc<Plane>>,
     
     skybox: Skybox,
 
@@ -124,6 +125,7 @@ impl Game {
         let cube_mesh = Rc::new(Cube::new(1.0));
         let sphere_mesh = Rc::new(Sphere::new(0.6, 32, 32));
         let capsule_mesh = Rc::new(Capsule::new(0.4, 1.2, 32, 16, 16));
+        let plane_mesh = Rc::new(Plane::new(20.0));
 
         // Create Materials
         let grass_material = Rc::new(TexturedMaterial {
@@ -184,12 +186,18 @@ impl Game {
                 .with_collider(Collider::new_box(Vec3::new(-0.4, -1.0, -0.4), Vec3::new(0.4, 1.0, 0.4))));
         }
 
+        let mut floor = SceneObject3D::new(plane_mesh, grass_material.clone())
+            .with_name("Floor")
+            .with_collider(Collider::new_box(Vec3::new(-10.0, -0.01, -10.0), Vec3::new(10.0, 0.01, 10.0)));
+        floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
+
         Self {
             center_cube,
             green_cube,
             red_cube,
             orbiting_spheres,
             capsules,
+            floor,
             
             skybox: Skybox::new(),
             ui_rect_shader,
@@ -242,6 +250,7 @@ impl Game {
         self.center_cube.render_depth(&self.shadow_map.shader);
         self.green_cube.render_depth(&self.shadow_map.shader);
         self.red_cube.render_depth(&self.shadow_map.shader);
+        self.floor.render_depth(&self.shadow_map.shader);
 
         for obj in &self.orbiting_spheres {
             obj.render_depth(&self.shadow_map.shader);
@@ -268,6 +277,7 @@ impl Game {
         self.center_cube.render(&context);
         self.green_cube.render(&context);
         self.red_cube.render(&context);
+        self.floor.render(&context);
 
         for obj in &self.orbiting_spheres {
              obj.render(&context);
@@ -305,6 +315,7 @@ impl Game {
              if self.center_cube.id == id { found = Some((&self.center_cube.name, self.center_cube.transform.position)); }
              else if self.green_cube.id == id { found = Some((&self.green_cube.name, self.green_cube.transform.position)); }
              else if self.red_cube.id == id { found = Some((&self.red_cube.name, self.red_cube.transform.position)); }
+             else if self.floor.id == id { found = Some((&self.floor.name, self.floor.transform.position)); }
              else {
                  for obj in &self.orbiting_spheres { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } }
                  if found.is_none() { for obj in &self.capsules { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
@@ -329,6 +340,7 @@ impl Game {
         if let Some(dist) = self.center_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.center_cube.transform)) { check(dist, self.center_cube.id); }
         if let Some(dist) = self.green_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.green_cube.transform)) { check(dist, self.green_cube.id); }
         if let Some(dist) = self.red_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.red_cube.transform)) { check(dist, self.red_cube.id); }
+        if let Some(dist) = self.floor.collider.as_ref().and_then(|c| c.intersect(ray, &self.floor.transform)) { check(dist, self.floor.id); }
         
         for obj in &self.orbiting_spheres { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
         for obj in &self.capsules { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
@@ -340,10 +352,11 @@ impl Game {
          if self.center_cube.id == id { self.center_cube.transform.position += delta; }
          else if self.green_cube.id == id { self.green_cube.transform.position += delta; }
          else if self.red_cube.id == id { self.red_cube.transform.position += delta; }
-         else {
-             for obj in &mut self.orbiting_spheres { if obj.id == id { obj.transform.position += delta; return; } }
-             for obj in &mut self.capsules { if obj.id == id { obj.transform.position += delta; return; } }
-         }
+          else if self.floor.id == id { self.floor.transform.position += delta; }
+          else {
+              for obj in &mut self.orbiting_spheres { if obj.id == id { obj.transform.position += delta; return; } }
+              for obj in &mut self.capsules { if obj.id == id { obj.transform.position += delta; return; } }
+          }
     }
 
 
@@ -367,6 +380,9 @@ impl Game {
         }
          if let Some(dist) = self.red_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.red_cube.transform)) {
              check(dist, &self.red_cube.name, self.red_cube.id);
+        }
+        if let Some(dist) = self.floor.collider.as_ref().and_then(|c| c.intersect(ray, &self.floor.transform)) {
+             check(dist, &self.floor.name, self.floor.id);
         }
         
         for p in &self.orbiting_spheres {

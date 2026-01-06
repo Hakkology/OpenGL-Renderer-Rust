@@ -1,9 +1,11 @@
-pub mod capsule;
 pub mod cube;
-pub mod skybox;
 pub mod sphere;
+pub mod capsule;
+pub mod skybox;
+pub mod plane;
 
-pub use capsule::Capsule;
 pub use cube::Cube;
-pub use skybox::Skybox;
 pub use sphere::Sphere;
+pub use capsule::Capsule;
+pub use skybox::Skybox;
+pub use plane::Plane;

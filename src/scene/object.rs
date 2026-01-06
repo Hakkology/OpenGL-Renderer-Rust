@@ -1,6 +1,6 @@
 use crate::scene::transform::{Transform, Transform2D};
 use crate::shaders::Shader;
-use crate::primitives::{Cube, Sphere, Capsule};
+use crate::primitives::{Cube, Sphere, Capsule, Plane};
 use crate::scene::collider::Collider;
 // use crate::shapes::{Rectangle, Circle, Triangle}; // Unused/Incompatible shapes for now
 
@@ -21,6 +21,9 @@ impl Renderable for Sphere {
     fn draw(&self) { self.draw(); }
 }
 impl Renderable for Capsule {
+    fn draw(&self) { self.draw(); }
+}
+impl Renderable for Plane {
     fn draw(&self) { self.draw(); }
 }
 

@@ -1,5 +1,6 @@
 use glam::{Mat4, Vec3};
 use crate::input::Input;
+use crate::math::ray::Ray;
 
 pub struct OrbitCamera {
     pub position: Vec3,
@@ -100,6 +101,26 @@ impl OrbitCamera {
     pub fn skybox_view_matrix(&self) -> Mat4 {
         let view = self.view_matrix();
         Mat4::from_mat3(glam::Mat3::from_mat4(view))
+    }
+
+    pub fn screen_point_to_ray(&self, screen_x: f32, screen_y: f32, screen_width: f32, screen_height: f32) -> Ray {
+        let x = (2.0 * screen_x) / screen_width - 1.0;
+        let y = 1.0 - (2.0 * screen_y) / screen_height;
+        
+        let projection = self.projection_matrix(screen_width / screen_height);
+        let view = self.view_matrix();
+        let inv_vp = (projection * view).inverse();
+        
+        let ndc_near = glam::Vec4::new(x, y, -1.0, 1.0);
+        let ndc_far  = glam::Vec4::new(x, y, 1.0, 1.0);
+        
+        let mut world_near = inv_vp * ndc_near;
+        world_near /= world_near.w;
+        
+        let mut world_far = inv_vp * ndc_far;
+        world_far /= world_far.w;
+        
+        Ray::new(world_near.truncate(), (world_far - world_near).truncate())
     }
 }
 

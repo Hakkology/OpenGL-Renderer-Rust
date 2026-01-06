@@ -13,6 +13,8 @@ use crate::scene::object::SceneObject3D;
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
 use crate::scene::context::RenderContext;
 use crate::ui::{Button, TextRenderer};
+use crate::math::ray::Ray;
+use crate::scene::collider::Collider;
 
 pub trait RenderMode {
     fn update(&mut self, time: &Time);
@@ -165,18 +167,28 @@ impl Game {
         });
 
         // Create Scene Objects
-        let center_cube = SceneObject3D::new(cube_mesh.clone(), grass_material.clone());
-        let green_cube = SceneObject3D::new(cube_mesh.clone(), green_material.clone());
-        let red_cube = SceneObject3D::new(cube_mesh.clone(), red_material.clone());
+        let center_cube = SceneObject3D::new(cube_mesh.clone(), grass_material.clone())
+            .with_name("Center Cube")
+            .with_collider(Collider::new_cube(1.0));
+        let green_cube = SceneObject3D::new(cube_mesh.clone(), green_material.clone())
+            .with_name("Green Cube")
+            .with_collider(Collider::new_cube(1.0));
+        let red_cube = SceneObject3D::new(cube_mesh.clone(), red_material.clone())
+            .with_name("Red Cube")
+            .with_collider(Collider::new_cube(1.0));
         
         let mut orbiting_spheres = Vec::new();
-        for _ in 0..2 {
-             orbiting_spheres.push(SceneObject3D::new(sphere_mesh.clone(), stone_material.clone()));
+        for i in 0..2 {
+             orbiting_spheres.push(SceneObject3D::new(sphere_mesh.clone(), stone_material.clone())
+                .with_name(&format!("Orbiting Sphere {}", i))
+                .with_collider(Collider::new_sphere(0.6)));
         }
 
         let mut capsules = Vec::new();
-        for _ in 0..2 {
-             capsules.push(SceneObject3D::new(capsule_mesh.clone(), grass_material.clone()));
+        for i in 0..2 {
+             capsules.push(SceneObject3D::new(capsule_mesh.clone(), grass_material.clone())
+                .with_name(&format!("Floating Capsule {}", i))
+                .with_collider(Collider::new_box(Vec3::new(-0.4, -1.0, -0.4), Vec3::new(0.4, 1.0, 0.4))));
         }
 
         Self {
@@ -305,8 +317,48 @@ impl Game {
             800.0,
             600.0,
         );
-        self.pause_button
-            .draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
+        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
+    }
+
+    fn check_intersection(&self, ray: &Ray) {
+        let mut min_dist = f32::MAX;
+        let mut hit_object: Option<(String, usize)> = None;
+
+        // Helper closure to check intersection and update nearest
+        let mut check = |dist: f32, name: &str, id: usize| {
+            if dist < min_dist {
+                min_dist = dist;
+                hit_object = Some((name.to_string(), id));
+            }
+        };
+
+        if let Some(dist) = self.center_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.center_cube.transform)) {
+            check(dist, &self.center_cube.name, self.center_cube.id);
+        }
+        if let Some(dist) = self.green_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.green_cube.transform)) {
+             check(dist, &self.green_cube.name, self.green_cube.id);
+        }
+         if let Some(dist) = self.red_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.red_cube.transform)) {
+             check(dist, &self.red_cube.name, self.red_cube.id);
+        }
+        
+        for p in &self.orbiting_spheres {
+            if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
+                check(dist, &p.name, p.id);
+            }
+        }
+        
+        for p in &self.capsules {
+             if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
+                 check(dist, &p.name, p.id);
+             }
+        }
+        
+        if let Some((name, id)) = hit_object {
+             println!("Raycast Hit: '{}' (ID: {}) at distance {:.2}", name, id, min_dist);
+        } else {
+             println!("Raycast Miss");
+        }
     }
 }
 
@@ -389,6 +441,9 @@ impl RenderMode for Game {
                 } else {
                     "Pause".to_string()
                 };
+            } else {
+                let ray = self.camera.screen_point_to_ray(mx, my, 800.0, 600.0);
+                self.check_intersection(&ray);
             }
         }
     }

@@ -1,9 +1,13 @@
 use crate::scene::transform::{Transform, Transform2D};
 use crate::shaders::Shader;
 use crate::primitives::{Cube, Sphere, Capsule};
+use crate::scene::collider::Collider;
 // use crate::shapes::{Rectangle, Circle, Triangle}; // Unused/Incompatible shapes for now
 
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
 
 pub trait Renderable {
     fn draw(&self);
@@ -35,20 +39,37 @@ impl<T: Renderable + ?Sized> Renderable for Box<T> {
 use crate::scene::material::Material;
 
 pub struct SceneObject3D<T: Renderable> {
+    pub id: usize,
+    pub name: String,
     pub transform: Transform,
     pub renderable: T,
     pub material: Rc<dyn Material>,
+    pub collider: Option<Collider>,
 }
 
 use crate::scene::context::RenderContext;
 
 impl<T: Renderable> SceneObject3D<T> {
     pub fn new(renderable: T, material: Rc<dyn Material>) -> Self {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         Self {
+            id,
+            name: format!("Object {}", id),
             transform: Transform::default(),
             renderable,
             material,
+            collider: None,
         }
+    }
+
+    pub fn with_name(mut self, name: &str) -> Self {
+        self.name = name.to_string();
+        self
+    }
+
+    pub fn with_collider(mut self, collider: Collider) -> Self {
+        self.collider = Some(collider);
+        self
     }
 
     pub fn render(&self, ctx: &RenderContext) {

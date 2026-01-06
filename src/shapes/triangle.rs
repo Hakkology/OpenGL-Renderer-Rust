@@ -1,11 +1,12 @@
 extern crate gl;
 
-use crate::shader::Shader;
+use std::rc::Rc;
 use std::ptr;
 use gl::types::{GLuint, GLfloat};
-use crate::draw::Shape;
-use std::rc::Rc;  // Import Rc for reference counting
-use crate::vector2d::Vector2D;  // Import Vector2D
+
+use crate::shaders::Shader;
+use super::Vector2D;
+use super::Shape;
 
 pub struct Triangle {
     vao: GLuint,
@@ -19,7 +20,7 @@ impl Triangle {
     // Yeni bir üçgen oluşturur
     pub fn new(shader: Rc<Shader>, v1: Vector2D, v2: Vector2D, v3: Vector2D) -> Triangle {
         let edge1 = Vector2D::new(v2.x - v1.x, v2.y - v1.y);
-        let edge2 = Vector2D::new(v3.x - v1.x, v3.y - v1.y);
+        // Basit bir normal hesaplama (2D için Z ekseni dikkate alınarak)
         let normal = Vector2D::new(edge1.y, -edge1.x).normalize();
 
         let mut triangle = Triangle { 
@@ -31,6 +32,11 @@ impl Triangle {
         };
         triangle.init();
         triangle
+    }
+
+    // Shader'ı değiştirmek için metot
+    pub fn set_shader(&mut self, shader: Rc<Shader>) {
+        self.shader = shader;
     }
 }
 
@@ -59,10 +65,11 @@ impl Shape for Triangle {
                 gl::STATIC_DRAW,
             );
 
-            // Update the stride and offset to match the new vertex shader
+            // Position attribute
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 6 * std::mem::size_of::<GLfloat>() as i32, ptr::null());
             gl::EnableVertexAttribArray(0);
 
+            // Normal/Color attribute
             gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 6 * std::mem::size_of::<GLfloat>() as i32, (3 * std::mem::size_of::<GLfloat>()) as *const _);
             gl::EnableVertexAttribArray(1);
 
@@ -73,7 +80,7 @@ impl Shape for Triangle {
     // Üçgeni çizer
     fn draw(&self) {
         unsafe {
-            self.shader.use_program();  // Use the shader before drawing
+            self.shader.use_program();
             gl::BindVertexArray(self.vao);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);

@@ -1,26 +1,28 @@
-extern crate glfw;  
-extern crate gl;    
+extern crate glfw;
+extern crate gl;
 
 mod window;
 mod app;
-mod shader;
-mod draw;
-mod circle;
-mod triangle;
-mod rectangle;
-mod vector2d;
-mod vector3d;  // Add this line
-mod cube;  // Add this line
+mod shaders;
+mod texture;
+mod input;
+mod shapes;
+mod modes;
+pub mod importer;
 
+use window::GlWindow;
 use app::Application;
+use modes::cube::CubeMode;
 
 fn main() {
-    // Create a new instance of the Application
-    let mut app = Application::new();
+    // 1. Pencereyi ve OpenGL context'ini oluştur
+    let mut window = GlWindow::new("OpenGL Modular Renderer", 800, 600);
+    window.init_gl();
 
-    // Initialize OpenGL settings, such as clear color, context setup
-    app.init_gl();
+    // 2. Modu oluştur (Context hazır olduğu için shader/buffer yükleyebilir)
+    let mode = Box::new(CubeMode::new());
 
-    // Start the main loop that handles rendering and input events
+    // 3. Uygulamayı başlat
+    let mut app = Application::new(window, mode);
     app.run();
 }

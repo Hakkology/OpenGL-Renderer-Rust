@@ -37,15 +37,24 @@ impl GlWindow {
         println!("OpenGL version: {}", version);
         
         unsafe {
+            gl::Enable(gl::DEPTH_TEST);
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
     
             let (width, height) = self.window.get_size();
             gl::Viewport(0, 0, width, height);
         }
     }
+
+    // Ekranı temizler
+    pub fn clear(&self, r: f32, g: f32, b: f32, a: f32) {
+        unsafe {
+            gl::ClearColor(r, g, b, a);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+    }
     
     // Pencere olaylarını işler
-    pub fn handle_event(&mut self, event: WindowEvent) {
+    pub fn handle_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                 self.window.set_should_close(true);

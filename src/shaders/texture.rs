@@ -115,6 +115,70 @@ impl CubeMap {
         Ok(CubeMap { id })
     }
 
+    /// Load cubemap from a single horizontal cross layout image (4x3 grid)
+    /// Layout: [empty, top, empty, empty]
+    ///         [left, front, right, back]
+    ///         [empty, bottom, empty, empty]
+    pub fn from_cross_file(path: &str) -> Result<CubeMap, String> {
+        let img = image::open(path).map_err(|e| e.to_string())?;
+        let img = img.to_rgba8();
+        let width = img.width();
+        let height = img.height();
+        
+        let face_width = width / 4;
+        let face_height = height / 3;
+
+        // Face positions in the cross layout (x, y in face units)
+        // Order: +X, -X, +Y, -Y, +Z, -Z
+        let face_positions = [
+            (2, 1), // +X (right)
+            (0, 1), // -X (left)
+            (1, 0), // +Y (top)
+            (1, 2), // -Y (bottom)
+            (1, 1), // +Z (front)
+            (3, 1), // -Z (back)
+        ];
+
+        let mut id = 0;
+        unsafe {
+            gl::GenTextures(1, &mut id);
+            gl::BindTexture(gl::TEXTURE_CUBE_MAP, id);
+
+            for (i, (fx, fy)) in face_positions.iter().enumerate() {
+                let x = fx * face_width;
+                let y = fy * face_height;
+                
+                let mut face_data = Vec::with_capacity((face_width * face_height * 4) as usize);
+                for row in 0..face_height {
+                    for col in 0..face_width {
+                        let pixel = img.get_pixel(x + col, y + row);
+                        face_data.extend_from_slice(&pixel.0);
+                    }
+                }
+
+                gl::TexImage2D(
+                    gl::TEXTURE_CUBE_MAP_POSITIVE_X + i as u32,
+                    0,
+                    gl::RGBA as i32,
+                    face_width as i32,
+                    face_height as i32,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    face_data.as_ptr() as *const c_void,
+                );
+            }
+
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_CUBE_MAP, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_EDGE as i32);
+        }
+
+        Ok(CubeMap { id })
+    }
+
     pub fn bind(&self, unit: u32) {
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0 + unit);

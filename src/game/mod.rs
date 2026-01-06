@@ -2,8 +2,8 @@ use std::rc::Rc;
 use glam::{Mat4, Vec3};
 use glfw::{Action, Key, WindowEvent};
 
-use crate::primitives::{Cube, Sphere, Capsule};
-use crate::shaders::{Shader, VertexShaderKind, FragmentShaderKind, Texture};
+use crate::primitives::{Cube, Sphere, Capsule, Skybox};
+use crate::shaders::{Shader, VertexShaderKind, FragmentShaderKind, Texture, CubeMap};
 use crate::light::DirectionalLight;
 use crate::ui::{TextRenderer, Button};
 use crate::input::Input;
@@ -28,6 +28,9 @@ pub struct Game {
     texture: Texture,
     text_renderer: TextRenderer,
     pause_button: Button,
+    skybox: Skybox,
+    skybox_shader: Rc<Shader>,
+    skybox_cubemap: CubeMap,
 
     // State
     input: Input,
@@ -66,6 +69,14 @@ impl Game {
 
         let text_renderer = TextRenderer::new(ui_shader.clone());
 
+        let skybox_shader = Rc::new(Shader::new(
+            VertexShaderKind::Skybox,
+            FragmentShaderKind::Skybox
+        ).expect("Failed to create skybox shader"));
+
+        let skybox_cubemap = CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
+            .expect("Failed to load skybox cubemap");
+
         Self {
             cube: Cube::new(1.0),
             sphere: Sphere::new(0.6, 32, 32),
@@ -77,6 +88,9 @@ impl Game {
             texture,
             text_renderer,
             pause_button: Button::new("Pause", 640.0, 20.0, 140.0, 40.0),
+            skybox: Skybox::new(),
+            skybox_shader,
+            skybox_cubemap,
             input: Input::new(),
             light: DirectionalLight::new(
                 Vec3::new(-0.2, -1.0, -0.3),
@@ -140,6 +154,16 @@ impl RenderMode for Game {
     fn render(&self) {
         let projection = Mat4::perspective_rh_gl(45.0f32.to_radians(), 800.0/600.0, 0.1, 100.0);
         let view = Mat4::look_at_rh(self.camera_pos, Vec3::ZERO, Vec3::Y);
+
+        // Render Skybox first
+        self.skybox_shader.use_program();
+        // Remove translation from view matrix for skybox
+        let view_no_translation = Mat4::from_mat3(glam::Mat3::from_mat4(view));
+        self.skybox_shader.set_mat4("projection", &projection.to_cols_array());
+        self.skybox_shader.set_mat4("view", &view_no_translation.to_cols_array());
+        self.skybox_cubemap.bind(0);
+        self.skybox_shader.set_int("skybox", 0);
+        self.skybox.draw();
 
         // 1. Render Textured Cube (CENTER)
         self.textured_shader.use_program();

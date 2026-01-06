@@ -4,7 +4,6 @@ use std::ptr;
 use std::ffi::CString;
 
 use super::part::{ShaderPart, ShaderType};
-use super::library::{VertexShaderKind, FragmentShaderKind};
 
 pub struct Program {
     pub id: GLuint,
@@ -33,19 +32,18 @@ impl Program {
         Ok(Program { id: program_id })
     }
 
-    // High level constructor using Enums
-    pub fn new(vertex_kind: VertexShaderKind, fragment_kind: FragmentShaderKind) -> Result<Program, String> {
-        let vs_source = vertex_kind.get_source();
-        let fs_source = fragment_kind.get_source();
+    /// Load shader from files (.vert and .frag)
+    pub fn from_files(vertex_path: &str, fragment_path: &str) -> Result<Program, String> {
+        let vs_source = std::fs::read_to_string(vertex_path)
+            .map_err(|e| format!("Failed to read vertex shader '{}': {}", vertex_path, e))?;
+        let fs_source = std::fs::read_to_string(fragment_path)
+            .map_err(|e| format!("Failed to read fragment shader '{}': {}", fragment_path, e))?;
 
         let vs = ShaderPart::from_source(&vs_source, ShaderType::Vertex)?;
         let fs = ShaderPart::from_source(&fs_source, ShaderType::Fragment)?;
 
         Self::from_parts(&vs, &fs)
     }
-    
-    // Legacy support wrapper (optional, but requested to match old signature if needed, though we are refactoring)
-    // We'll skip legacy signature and update callers.
     
     pub fn use_program(&self) {
         unsafe {

@@ -3,264 +3,307 @@ use glam::{Mat4, Vec3};
 use glfw::{Action, Key, WindowEvent};
 
 use crate::primitives::{Cube, Sphere, Capsule, Skybox};
-use crate::shaders::{Shader, VertexShaderKind, FragmentShaderKind, Texture, CubeMap};
-use crate::light::DirectionalLight;
+use crate::shaders::{Shader, Texture, CubeMap};
+use crate::light::{DirectionalLight, PointLight, Light};
 use crate::ui::{TextRenderer, Button};
 use crate::input::Input;
-
+use crate::camera::OrbitCamera;
+use crate::shadow::ShadowMap;
 use crate::time::Time;
 
 pub trait RenderMode {
     fn update(&mut self, delta_time: f32);
-    fn render(&self);
+    fn render(&mut self);
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time);
 }
 
 pub struct Game {
-    // Assets & Primitives
+    // Primitives
     cube: Cube,
     sphere: Sphere,
     capsule: Capsule,
+    skybox: Skybox,
+
+    // Shaders
     colored_shader: Rc<Shader>,
     textured_shader: Rc<Shader>,
     ui_shader: Rc<Shader>,
     ui_rect_shader: Rc<Shader>,
-    texture: Texture,
-    text_renderer: TextRenderer,
-    pause_button: Button,
-    skybox: Skybox,
     skybox_shader: Rc<Shader>,
+
+    // Textures
+    texture: Texture,
     skybox_cubemap: CubeMap,
 
-    // State
+    // UI
+    text_renderer: TextRenderer,
+    pause_button: Button,
+
+    // Systems
     input: Input,
+    camera: OrbitCamera,
+    shadow_map: ShadowMap,
+
+    // Lights
     light: DirectionalLight,
-    camera_pos: Vec3,
-    yaw: f32,
-    pitch: f32,
-    camera_distance: f32,
+    point_light: PointLight,
+
+    // State
     time: f32,
+    light_space_matrix: Mat4,
 }
 
 impl Game {
     pub fn new() -> Self {
-        let colored_shader = Rc::new(Shader::new(
-            VertexShaderKind::Lit, 
-            FragmentShaderKind::LitDirectional
+        // Load shaders
+        let colored_shader = Rc::new(Shader::from_files(
+            "assets/shaders/lit.vert",
+            "assets/shaders/lit_color.frag"
         ).expect("Failed to create colored shader"));
 
-        let textured_shader = Rc::new(Shader::new(
-            VertexShaderKind::Lit,
-            FragmentShaderKind::LitTextured
+        let textured_shader = Rc::new(Shader::from_files(
+            "assets/shaders/lit.vert",
+            "assets/shaders/lit_textured.frag"
         ).expect("Failed to create textured shader"));
 
-        let ui_shader = Rc::new(Shader::new(
-            VertexShaderKind::UI,
-            FragmentShaderKind::UIText
+        let ui_shader = Rc::new(Shader::from_files(
+            "assets/shaders/ui.vert",
+            "assets/shaders/ui_text.frag"
         ).expect("Failed to create UI text shader"));
 
-        let ui_rect_shader = Rc::new(Shader::new(
-            VertexShaderKind::UI,
-            FragmentShaderKind::UIColor
+        let ui_rect_shader = Rc::new(Shader::from_files(
+            "assets/shaders/ui.vert",
+            "assets/shaders/ui_color.frag"
         ).expect("Failed to create UI rect shader"));
 
+        let skybox_shader = Rc::new(Shader::from_files(
+            "assets/shaders/skybox.vert",
+            "assets/shaders/skybox.frag"
+        ).expect("Failed to create skybox shader"));
+
+        // Load textures
         let texture = Texture::from_file("assets/resources/textures/photo-wall-texture-pattern.jpg")
             .expect("Failed to load texture");
 
-        let text_renderer = TextRenderer::new(ui_shader.clone());
-
-        let skybox_shader = Rc::new(Shader::new(
-            VertexShaderKind::Skybox,
-            FragmentShaderKind::Skybox
-        ).expect("Failed to create skybox shader"));
-
         let skybox_cubemap = CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
             .expect("Failed to load skybox cubemap");
+
+        let text_renderer = TextRenderer::new(ui_shader.clone());
+
+        // Shadow map (2048x2048 resolution)
+        let shadow_map = ShadowMap::new(2048, 2048);
+
+        let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.5, 1.0, 32.0);
 
         Self {
             cube: Cube::new(1.0),
             sphere: Sphere::new(0.6, 32, 32),
             capsule: Capsule::new(0.4, 1.2, 32, 16, 16),
+            skybox: Skybox::new(),
             colored_shader,
             textured_shader,
             ui_shader,
             ui_rect_shader,
+            skybox_shader,
             texture,
+            skybox_cubemap,
             text_renderer,
             pause_button: Button::new("Pause", 640.0, 20.0, 140.0, 40.0),
-            skybox: Skybox::new(),
-            skybox_shader,
-            skybox_cubemap,
             input: Input::new(),
-            light: DirectionalLight::new(
-                Vec3::new(-0.2, -1.0, -0.3),
-                0.1,    // ambient
-                0.5,    // diffuse
-                1.0,    // specular
-                32.0    // shininess
-            ),
-            camera_pos: Vec3::new(0.0, 0.0, 10.0),
-            yaw: -90.0,
-            pitch: 0.0,
-            camera_distance: 7.0,
+            camera: OrbitCamera::new(),
+            shadow_map,
+            light,
+            point_light: PointLight::simple(Vec3::new(3.0, 3.0, 3.0), 0.05, 0.8, 1.0, 32.0),
             time: 0.0,
+            light_space_matrix: Mat4::IDENTITY,
         }
     }
 
-    fn set_light_uniforms(&self, shader: &Shader) {
-        let light = &self.light;
-        shader.set_vec3("lightDir", light.direction.x, light.direction.y, light.direction.z);
-        shader.set_vec3("lightColor", light.color.x, light.color.y, light.color.z);
-        shader.set_float("ambientStrength", light.ambient);
-        shader.set_float("diffuseStrength", light.diffuse);
-        shader.set_float("specularStrength", light.specular);
-        shader.set_float("shininess", light.shininess);
-        shader.set_vec3("viewPos", self.camera_pos.x, self.camera_pos.y, self.camera_pos.z);
+    fn apply_lights(&self, shader: &Shader) {
+        self.light.apply_to_shader(shader, self.camera.position);
+        self.point_light.apply_to_shader(shader, self.camera.position);
+        shader.set_mat4("lightSpaceMatrix", &self.light_space_matrix.to_cols_array());
+        self.shadow_map.bind_shadow_map(5);
+        shader.set_int("shadowMap", 5);
     }
 
-    fn shader_set_mvp(&self, shader: &Shader, p: &Mat4, v: &Mat4, m: &Mat4) {
-        shader.set_mat4("projection", &p.to_cols_array());
-        shader.set_mat4("view", &v.to_cols_array());
-        shader.set_mat4("model", &m.to_cols_array());
+    fn set_mvp(&self, shader: &Shader, projection: &Mat4, view: &Mat4, model: &Mat4) {
+        shader.set_mat4("projection", &projection.to_cols_array());
+        shader.set_mat4("view", &view.to_cols_array());
+        shader.set_mat4("model", &model.to_cols_array());
+    }
+
+    fn render_skybox(&self, projection: &Mat4) {
+        self.skybox_shader.use_program();
+        self.skybox_shader.set_mat4("projection", &projection.to_cols_array());
+        self.skybox_shader.set_mat4("view", &self.camera.skybox_view_matrix().to_cols_array());
+        self.skybox_cubemap.bind(0);
+        self.skybox_shader.set_int("skybox", 0);
+        self.skybox.draw();
+    }
+
+    fn get_object_models(&self) -> Vec<Mat4> {
+        let mut models = Vec::new();
+
+        // Center cube
+        models.push(Mat4::IDENTITY);
+
+        // Orbiting spheres
+        for (radius, speed) in [(2.5, 1.2), (4.0, 0.8)] {
+            let x = (self.time * speed).cos() * radius;
+            let z = (self.time * speed).sin() * radius;
+            models.push(Mat4::from_translation(Vec3::new(x, 0.0, z)));
+        }
+
+        // Green cube
+        models.push(Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time));
+
+        // Red cube
+        models.push(Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time));
+
+        // Capsules
+        let tilt = 45.0f32.to_radians();
+        let tilt_mat = Mat4::from_rotation_z(tilt);
+        for i in 0..2 {
+            let offset = i as f32 * std::f32::consts::PI;
+            let angle = self.time * 0.7 + offset;
+            let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
+            let tilted_pos = tilt_mat.transform_point3(orbit_pos);
+            models.push(Mat4::from_translation(tilted_pos) * Mat4::from_rotation_y(self.time) * Mat4::from_rotation_x(tilt));
+        }
+
+        models
+    }
+
+    fn render_shadow_pass(&self) {
+        self.shadow_map.begin_pass();
+        self.shadow_map.set_light_space_matrix(&self.light_space_matrix);
+
+        let models = self.get_object_models();
+        
+        // Render all objects to depth
+        for model in &models {
+            self.shadow_map.set_model(model);
+            if model == &models[0] || model == &models[1] || model == &models[2] {
+                self.cube.draw();
+            } else if models.len() > 3 && (model == &models[3] || model == &models[4]) {
+                self.cube.draw();
+            }
+        }
+        
+        // Simple approach: just draw all primitives for shadow
+        for model in &models[..3] {
+            self.shadow_map.set_model(model);
+            self.cube.draw();
+        }
+
+        self.shadow_map.end_pass(800, 600);
+    }
+
+    fn render_objects(&self, projection: &Mat4, view: &Mat4) {
+        // Center textured cube
+        self.textured_shader.use_program();
+        self.texture.bind(0);
+        self.textured_shader.set_int("u_Texture", 0);
+        self.apply_lights(&self.textured_shader);
+        self.set_mvp(&self.textured_shader, projection, view, &Mat4::IDENTITY);
+        self.cube.draw();
+
+        // Orbiting spheres
+        for (radius, speed) in [(2.5, 1.2), (4.0, 0.8)] {
+            let x = (self.time * speed).cos() * radius;
+            let z = (self.time * speed).sin() * radius;
+            let model = Mat4::from_translation(Vec3::new(x, 0.0, z));
+            self.set_mvp(&self.textured_shader, projection, view, &model);
+            self.sphere.draw();
+        }
+
+        // Colored cubes
+        self.colored_shader.use_program();
+        self.apply_lights(&self.colored_shader);
+
+        // Green cube (top)
+        self.colored_shader.set_vec3("objectColor", 0.5, 0.8, 0.2);
+        let model = Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time);
+        self.set_mvp(&self.colored_shader, projection, view, &model);
+        self.cube.draw();
+
+        // Red cube (bottom)
+        self.colored_shader.set_vec3("objectColor", 1.0, 0.0, 0.0);
+        let model = Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time);
+        self.set_mvp(&self.colored_shader, projection, view, &model);
+        self.cube.draw();
+
+        // Orbiting capsules (tilted 45°)
+        self.textured_shader.use_program();
+        self.texture.bind(0);
+        self.apply_lights(&self.textured_shader);
+        let tilt = 45.0f32.to_radians();
+        let tilt_mat = Mat4::from_rotation_z(tilt);
+
+        for i in 0..2 {
+            let offset = i as f32 * std::f32::consts::PI;
+            let angle = self.time * 0.7 + offset;
+            let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
+            let tilted_pos = tilt_mat.transform_point3(orbit_pos);
+            let model = Mat4::from_translation(tilted_pos) 
+                * Mat4::from_rotation_y(self.time)
+                * Mat4::from_rotation_x(tilt);
+            self.set_mvp(&self.textured_shader, projection, view, &model);
+            self.capsule.draw();
+        }
+    }
+
+    fn render_ui(&self) {
+        self.text_renderer.render_rect(&self.ui_rect_shader, 10.0, 540.0, 180.0, 50.0, 
+            glam::Vec4::new(0.0, 0.0, 0.0, 0.5), 800.0, 600.0);
+        self.text_renderer.render_text("Hakkology", 20.0, 545.0, 32.0, 
+            Vec3::new(1.0, 1.0, 1.0), 800.0, 600.0);
+        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
     }
 }
 
 impl RenderMode for Game {
     fn update(&mut self, delta_time: f32) {
         self.time += delta_time;
-
-        if self.input.is_mouse_button_pressed(glfw::MouseButtonLeft) {
-            let sensitivity = 50.0;
-            self.yaw += self.input.mouse.delta.x * sensitivity * delta_time;
-            self.pitch -= self.input.mouse.delta.y * sensitivity * delta_time; 
-            
-            if self.pitch > 89.0 { self.pitch = 89.0; }
-            if self.pitch < -89.0 { self.pitch = -89.0; }
-        }
-
-        // Zoom update
-        self.camera_distance -= self.input.mouse.scroll_y * 0.5;
-        if self.camera_distance < 2.0 { self.camera_distance = 2.0; }
-        if self.camera_distance > 20.0 { self.camera_distance = 20.0; }
-
-        let radius = self.camera_distance;
-        self.camera_pos.x = radius * self.yaw.to_radians().cos() * self.pitch.to_radians().cos();
-        self.camera_pos.y = radius * self.pitch.to_radians().sin();
-        self.camera_pos.z = radius * self.yaw.to_radians().sin() * self.pitch.to_radians().cos();
+        self.camera.update(&self.input, delta_time);
         
+        // Update light space matrix for shadows
+        self.light_space_matrix = self.shadow_map.light_space_matrix(
+            self.light.direction,
+            Vec3::ZERO,
+            10.0
+        );
+
         self.input.reset_delta();
     }
 
-    fn render(&self) {
-        let projection = Mat4::perspective_rh_gl(45.0f32.to_radians(), 800.0/600.0, 0.1, 100.0);
-        let view = Mat4::look_at_rh(self.camera_pos, Vec3::ZERO, Vec3::Y);
+    fn render(&mut self) {
+        // Shadow pass
+        self.render_shadow_pass();
 
-        // Render Skybox first
-        self.skybox_shader.use_program();
-        // Remove translation from view matrix for skybox
-        let view_no_translation = Mat4::from_mat3(glam::Mat3::from_mat4(view));
-        self.skybox_shader.set_mat4("projection", &projection.to_cols_array());
-        self.skybox_shader.set_mat4("view", &view_no_translation.to_cols_array());
-        self.skybox_cubemap.bind(0);
-        self.skybox_shader.set_int("skybox", 0);
-        self.skybox.draw();
+        let projection = self.camera.projection_matrix(800.0 / 600.0);
+        let view = self.camera.view_matrix();
 
-        // 1. Render Textured Cube (CENTER)
-        self.textured_shader.use_program();
-        self.texture.bind(0);
-        self.textured_shader.set_int("u_Texture", 0);
-        self.set_light_uniforms(&self.textured_shader);
-
-        let model_tex_cube = Mat4::IDENTITY;
-        self.shader_set_mvp(&self.textured_shader, &projection, &view, &model_tex_cube);
-        self.cube.draw();
-
-        // 2. Render Orbiting Spheres
-        self.textured_shader.use_program();
-        self.texture.bind(0);
-        
-        // Inner Sphere (Distance 2.5)
-        let orbit_radius1 = 2.5;
-        let speed1 = 1.2;
-        let sphere_x1 = (self.time * speed1).cos() * orbit_radius1;
-        let sphere_z1 = (self.time * speed1).sin() * orbit_radius1;
-        let model_sphere1 = Mat4::from_translation(Vec3::new(sphere_x1, 0.0, sphere_z1));
-        self.shader_set_mvp(&self.textured_shader, &projection, &view, &model_sphere1);
-        self.sphere.draw();
-
-        // Outer Sphere (Distance 4.0)
-        let orbit_radius2 = 4.0;
-        let speed2 = 0.8;
-        let sphere_x2 = (self.time * speed2).cos() * orbit_radius2;
-        let sphere_z2 = (self.time * speed2).sin() * orbit_radius2;
-        let model_sphere2 = Mat4::from_translation(Vec3::new(sphere_x2, 0.0, sphere_z2));
-        self.shader_set_mvp(&self.textured_shader, &projection, &view, &model_sphere2);
-        self.sphere.draw();
-
-        // 3. Render Green Cube (UP) (Self-rotating)
-        self.colored_shader.use_program();
-        self.set_light_uniforms(&self.colored_shader);
-        self.colored_shader.set_vec3("objectColor", 0.5, 0.8, 0.2);
-        let model_green = Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time);
-        self.shader_set_mvp(&self.colored_shader, &projection, &view, &model_green);
-        self.cube.draw();
-
-        // 4. Render Red Cube (DOWN) (Self-rotating)
-        self.colored_shader.set_vec3("objectColor", 1.0, 0.0, 0.0);
-        let model_red = Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time);
-        self.shader_set_mvp(&self.colored_shader, &projection, &view, &model_red);
-        self.cube.draw();
-
-        // 5. Render Orbiting Capsules (Tilted 45 degrees, self-rotating)
-        self.textured_shader.use_program();
-        self.texture.bind(0);
-        
-        let orbit_radius_capsule = 4.0;
-        let capsule_speed = 0.7;
-        let tilt_angle = 45.0f32.to_radians();
-        let tilt_mat = Mat4::from_rotation_z(tilt_angle);
-
-        for i in 0..2 {
-            let offset = i as f32 * std::f32::consts::PI; // Opposite sides
-            let angle = self.time * capsule_speed + offset;
-            
-            // Base orbit on XZ plane
-            let orbit_pos = Vec3::new(angle.cos() * orbit_radius_capsule, 0.0, angle.sin() * orbit_radius_capsule);
-            // Apply 45 degree tilt
-            let tilted_pos = tilt_mat.transform_point3(orbit_pos);
-            
-            let model_capsule = Mat4::from_translation(tilted_pos) 
-                * Mat4::from_rotation_y(self.time) // Self rotation
-                * Mat4::from_rotation_x(tilt_angle); // Align with orbit tilt or just extra flair
-                
-            self.shader_set_mvp(&self.textured_shader, &projection, &view, &model_capsule);
-            self.capsule.draw();
+        // Clear after shadow pass
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
-        // 5. UI
-        self.text_renderer.render_rect(&self.ui_rect_shader, 10.0, 540.0, 180.0, 50.0, glam::Vec4::new(0.0, 0.0, 0.0, 0.5), 800.0, 600.0);
-        self.text_renderer.render_text("Hakkology", 20.0, 545.0, 32.0, Vec3::new(1.0, 1.0, 1.0), 800.0, 600.0);
-
-        // Draw Pause Button
-        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
+        self.render_skybox(&projection);
+        self.render_objects(&projection, &view);
+        self.render_ui();
     }
 
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time) {
         self.input.handle_event(event);
 
-        match event {
-            WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) => {
-                let mx = self.input.mouse.pos.x;
-                let my = self.input.mouse.pos.y;
-                if self.pause_button.is_clicked(mx, my, 600.0) {
-                    time.toggle_pause();
-                    self.pause_button.text = if time.is_paused { "Resume".to_string() } else { "Pause".to_string() };
-                }
+        if let WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) = event {
+            let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
+            if self.pause_button.is_clicked(mx, my, 600.0) {
+                time.toggle_pause();
+                self.pause_button.text = if time.is_paused { "Resume".to_string() } else { "Pause".to_string() };
             }
-            WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-                // escape is handled globally too
-            }
-            _ => {}
         }
     }
 }

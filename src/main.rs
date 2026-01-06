@@ -12,6 +12,8 @@ mod primitives;
 mod game;
 mod ui;
 mod time;
+mod camera;
+mod shadow;
 pub mod importer;
 
 use window::GlWindow;

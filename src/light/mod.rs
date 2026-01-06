@@ -1,23 +1,20 @@
+pub mod components;
+pub mod directional;
+pub mod point;
+pub mod spotlight;
+
 use glam::Vec3;
+use crate::shaders::Shader;
 
-pub struct DirectionalLight {
-    pub direction: Vec3,
-    pub ambient: f32,
-    pub diffuse: f32,
-    pub specular: f32,
-    pub shininess: f32,
-    pub color: Vec3,
-}
+// Re-export components
+pub use components::{LightProperties, Attenuation, SpotCone};
 
-impl DirectionalLight {
-    pub fn new(direction: Vec3, ambient: f32, diffuse: f32, specular: f32, shininess: f32) -> Self {
-        DirectionalLight {
-            direction: direction.normalize(),
-            ambient,
-            diffuse,
-            specular,
-            shininess,
-            color: Vec3::ONE, // Varsayılan beyaz ışık
-        }
-    }
+// Re-export light types
+pub use directional::DirectionalLight;
+pub use point::PointLight;
+pub use spotlight::SpotLight;
+
+/// Common trait for all light types
+pub trait Light {
+    fn apply_to_shader(&self, shader: &Shader, view_pos: Vec3);
 }

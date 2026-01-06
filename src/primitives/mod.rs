@@ -1,13 +1,9 @@
-pub mod cube;
-pub mod sphere;
 pub mod capsule;
+pub mod cube;
 pub mod skybox;
+pub mod sphere;
 
-pub use cube::Cube;
-pub use sphere::Sphere;
 pub use capsule::Capsule;
+pub use cube::Cube;
 pub use skybox::Skybox;
-
-pub trait Primitive {
-    fn draw(&self);
-}
+pub use sphere::Sphere;

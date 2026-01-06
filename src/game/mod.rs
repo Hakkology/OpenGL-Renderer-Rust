@@ -1,15 +1,15 @@
-use std::rc::Rc;
 use glam::{Mat4, Vec3};
-use glfw::{Action, Key, WindowEvent};
+use glfw::{Action, WindowEvent};
+use std::rc::Rc;
 
-use crate::primitives::{Cube, Sphere, Capsule, Skybox};
-use crate::shaders::{Shader, Texture, CubeMap};
-use crate::light::{DirectionalLight, PointLight, Light};
-use crate::ui::{TextRenderer, Button};
-use crate::input::Input;
 use crate::camera::OrbitCamera;
+use crate::input::Input;
+use crate::light::{DirectionalLight, Light, PointLight};
+use crate::primitives::{Capsule, Cube, Skybox, Sphere};
+use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
 use crate::time::Time;
+use crate::ui::{Button, TextRenderer};
 
 pub trait RenderMode {
     fn update(&mut self, delta_time: f32);
@@ -56,37 +56,42 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         // Load shaders
-        let colored_shader = Rc::new(Shader::from_files(
-            "assets/shaders/lit.vert",
-            "assets/shaders/lit_color.frag"
-        ).expect("Failed to create colored shader"));
+        let colored_shader = Rc::new(
+            Shader::from_files("assets/shaders/lit.vert", "assets/shaders/lit_color.frag")
+                .expect("Failed to create colored shader"),
+        );
 
-        let textured_shader = Rc::new(Shader::from_files(
-            "assets/shaders/lit.vert",
-            "assets/shaders/lit_textured.frag"
-        ).expect("Failed to create textured shader"));
+        let textured_shader = Rc::new(
+            Shader::from_files(
+                "assets/shaders/lit.vert",
+                "assets/shaders/lit_textured.frag",
+            )
+            .expect("Failed to create textured shader"),
+        );
 
-        let ui_shader = Rc::new(Shader::from_files(
-            "assets/shaders/ui.vert",
-            "assets/shaders/ui_text.frag"
-        ).expect("Failed to create UI text shader"));
+        let ui_shader = Rc::new(
+            Shader::from_files("assets/shaders/ui.vert", "assets/shaders/ui_text.frag")
+                .expect("Failed to create UI text shader"),
+        );
 
-        let ui_rect_shader = Rc::new(Shader::from_files(
-            "assets/shaders/ui.vert",
-            "assets/shaders/ui_color.frag"
-        ).expect("Failed to create UI rect shader"));
+        let ui_rect_shader = Rc::new(
+            Shader::from_files("assets/shaders/ui.vert", "assets/shaders/ui_color.frag")
+                .expect("Failed to create UI rect shader"),
+        );
 
-        let skybox_shader = Rc::new(Shader::from_files(
-            "assets/shaders/skybox.vert",
-            "assets/shaders/skybox.frag"
-        ).expect("Failed to create skybox shader"));
+        let skybox_shader = Rc::new(
+            Shader::from_files("assets/shaders/skybox.vert", "assets/shaders/skybox.frag")
+                .expect("Failed to create skybox shader"),
+        );
 
         // Load textures
-        let texture = Texture::from_file("assets/resources/textures/photo-wall-texture-pattern.jpg")
-            .expect("Failed to load texture");
+        let texture =
+            Texture::from_file("assets/resources/textures/photo-wall-texture-pattern.jpg")
+                .expect("Failed to load texture");
 
-        let skybox_cubemap = CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
-            .expect("Failed to load skybox cubemap");
+        let skybox_cubemap =
+            CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
+                .expect("Failed to load skybox cubemap");
 
         let text_renderer = TextRenderer::new(ui_shader.clone());
 
@@ -121,7 +126,8 @@ impl Game {
 
     fn apply_lights(&self, shader: &Shader) {
         self.light.apply_to_shader(shader, self.camera.position);
-        self.point_light.apply_to_shader(shader, self.camera.position);
+        self.point_light
+            .apply_to_shader(shader, self.camera.position);
         shader.set_mat4("lightSpaceMatrix", &self.light_space_matrix.to_cols_array());
         self.shadow_map.bind_shadow_map(5);
         shader.set_int("shadowMap", 5);
@@ -135,8 +141,10 @@ impl Game {
 
     fn render_skybox(&self, projection: &Mat4) {
         self.skybox_shader.use_program();
-        self.skybox_shader.set_mat4("projection", &projection.to_cols_array());
-        self.skybox_shader.set_mat4("view", &self.camera.skybox_view_matrix().to_cols_array());
+        self.skybox_shader
+            .set_mat4("projection", &projection.to_cols_array());
+        self.skybox_shader
+            .set_mat4("view", &self.camera.skybox_view_matrix().to_cols_array());
         self.skybox_cubemap.bind(0);
         self.skybox_shader.set_int("skybox", 0);
         self.skybox.draw();
@@ -156,10 +164,14 @@ impl Game {
         }
 
         // Green cube
-        models.push(Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time));
+        models.push(
+            Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time),
+        );
 
         // Red cube
-        models.push(Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time));
+        models.push(
+            Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time),
+        );
 
         // Capsules
         let tilt = 45.0f32.to_radians();
@@ -169,7 +181,11 @@ impl Game {
             let angle = self.time * 0.7 + offset;
             let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
             let tilted_pos = tilt_mat.transform_point3(orbit_pos);
-            models.push(Mat4::from_translation(tilted_pos) * Mat4::from_rotation_y(self.time) * Mat4::from_rotation_x(tilt));
+            models.push(
+                Mat4::from_translation(tilted_pos)
+                    * Mat4::from_rotation_y(self.time)
+                    * Mat4::from_rotation_x(tilt),
+            );
         }
 
         models
@@ -177,10 +193,11 @@ impl Game {
 
     fn render_shadow_pass(&self) {
         self.shadow_map.begin_pass();
-        self.shadow_map.set_light_space_matrix(&self.light_space_matrix);
+        self.shadow_map
+            .set_light_space_matrix(&self.light_space_matrix);
 
         let models = self.get_object_models();
-        
+
         // Render all objects to depth
         for model in &models {
             self.shadow_map.set_model(model);
@@ -190,7 +207,7 @@ impl Game {
                 self.cube.draw();
             }
         }
-        
+
         // Simple approach: just draw all primitives for shadow
         for model in &models[..3] {
             self.shadow_map.set_model(model);
@@ -224,13 +241,15 @@ impl Game {
 
         // Green cube (top)
         self.colored_shader.set_vec3("objectColor", 0.5, 0.8, 0.2);
-        let model = Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time);
+        let model =
+            Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0)) * Mat4::from_rotation_y(self.time);
         self.set_mvp(&self.colored_shader, projection, view, &model);
         self.cube.draw();
 
         // Red cube (bottom)
         self.colored_shader.set_vec3("objectColor", 1.0, 0.0, 0.0);
-        let model = Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time);
+        let model =
+            Mat4::from_translation(Vec3::new(0.0, -2.0, 0.0)) * Mat4::from_rotation_y(-self.time);
         self.set_mvp(&self.colored_shader, projection, view, &model);
         self.cube.draw();
 
@@ -246,7 +265,7 @@ impl Game {
             let angle = self.time * 0.7 + offset;
             let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
             let tilted_pos = tilt_mat.transform_point3(orbit_pos);
-            let model = Mat4::from_translation(tilted_pos) 
+            let model = Mat4::from_translation(tilted_pos)
                 * Mat4::from_rotation_y(self.time)
                 * Mat4::from_rotation_x(tilt);
             self.set_mvp(&self.textured_shader, projection, view, &model);
@@ -255,11 +274,27 @@ impl Game {
     }
 
     fn render_ui(&self) {
-        self.text_renderer.render_rect(&self.ui_rect_shader, 10.0, 540.0, 180.0, 50.0, 
-            glam::Vec4::new(0.0, 0.0, 0.0, 0.5), 800.0, 600.0);
-        self.text_renderer.render_text("Hakkology", 20.0, 545.0, 32.0, 
-            Vec3::new(1.0, 1.0, 1.0), 800.0, 600.0);
-        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
+        self.text_renderer.render_rect(
+            &self.ui_rect_shader,
+            10.0,
+            540.0,
+            180.0,
+            50.0,
+            glam::Vec4::new(0.0, 0.0, 0.0, 0.5),
+            800.0,
+            600.0,
+        );
+        self.text_renderer.render_text(
+            "Hakkology",
+            20.0,
+            545.0,
+            32.0,
+            Vec3::new(1.0, 1.0, 1.0),
+            800.0,
+            600.0,
+        );
+        self.pause_button
+            .draw(&self.text_renderer, &self.ui_rect_shader, 800.0, 600.0);
     }
 }
 
@@ -267,13 +302,11 @@ impl RenderMode for Game {
     fn update(&mut self, delta_time: f32) {
         self.time += delta_time;
         self.camera.update(&self.input, delta_time);
-        
+
         // Update light space matrix for shadows
-        self.light_space_matrix = self.shadow_map.light_space_matrix(
-            self.light.direction,
-            Vec3::ZERO,
-            10.0
-        );
+        self.light_space_matrix =
+            self.shadow_map
+                .light_space_matrix(self.light.direction, Vec3::ZERO, 10.0);
 
         self.input.reset_delta();
     }
@@ -302,7 +335,11 @@ impl RenderMode for Game {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
             if self.pause_button.is_clicked(mx, my, 600.0) {
                 time.toggle_pause();
-                self.pause_button.text = if time.is_paused { "Resume".to_string() } else { "Pause".to_string() };
+                self.pause_button.text = if time.is_paused {
+                    "Resume".to_string()
+                } else {
+                    "Pause".to_string()
+                };
             }
         }
     }

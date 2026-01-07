@@ -1,3 +1,4 @@
+use crate::config::camera as cam_config;
 use crate::input::Input;
 use crate::math::ray::Ray;
 use glam::{Mat4, Vec3};
@@ -17,15 +18,15 @@ pub struct OrbitCamera {
 impl OrbitCamera {
     pub fn new() -> Self {
         Self {
-            position: Vec3::new(0.0, 0.0, 7.0),
-            target: Vec3::ZERO,
-            yaw: -90.0,
-            pitch: 0.0,
-            distance: 7.0,
-            min_distance: 2.0,
-            max_distance: 20.0,
-            sensitivity: 50.0,
-            zoom_speed: 0.5,
+            position: cam_config::INITIAL_POSITION,
+            target: cam_config::INITIAL_TARGET,
+            yaw: cam_config::INITIAL_YAW,
+            pitch: cam_config::INITIAL_PITCH,
+            distance: cam_config::INITIAL_DISTANCE,
+            min_distance: cam_config::MIN_DISTANCE,
+            max_distance: cam_config::MAX_DISTANCE,
+            sensitivity: cam_config::SENSITIVITY,
+            zoom_speed: cam_config::ZOOM_SPEED,
         }
     }
 
@@ -56,19 +57,12 @@ impl OrbitCamera {
         let right = forward.cross(Vec3::Y).normalize();
 
         // WASD Movement (Moving the target/center of orbit)
-        // W/S moves forward/back relative to view
         let mut speed_multiplier = 1.0;
         if input.is_key_pressed(glfw::Key::LeftShift) || input.is_key_pressed(glfw::Key::RightShift)
         {
-            speed_multiplier = 2.0;
+            speed_multiplier = cam_config::SPRINT_MULTIPLIER;
         }
-        let move_speed = 5.0 * speed_multiplier * delta_time; // Adjustable speed
-
-        // Project forward to XZ plane for "FPS like" movement or standard free cam
-        // User requested: "w up, A left" -> typical WASD
-        // Usually W moves "forward" in view direction.
-        // For an orbit camera, moving "forward" usually means moving the pivot closer/further or moving the pivot in the scene.
-        // Let's implement panning the pivot point on XZ plane relative to camera view.
+        let move_speed = cam_config::MOVE_SPEED * speed_multiplier * delta_time;
 
         let flat_forward = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
         let flat_right = Vec3::new(right.x, 0.0, right.z).normalize_or_zero();
@@ -85,8 +79,6 @@ impl OrbitCamera {
         if input.is_key_pressed(glfw::Key::D) {
             self.target += flat_right * move_speed;
         }
-        // Optional: E/Q for Up/Down? Or just keep it planar.
-        // Let's keep it simplest for now.
 
         self.position.x = self.distance * yaw_rad.cos() * pitch_rad.cos();
         self.position.y = self.distance * pitch_rad.sin();
@@ -100,7 +92,12 @@ impl OrbitCamera {
     }
 
     pub fn projection_matrix(&self, aspect_ratio: f32) -> Mat4 {
-        Mat4::perspective_rh_gl(45.0f32.to_radians(), aspect_ratio, 0.1, 3000.0)
+        Mat4::perspective_rh_gl(
+            cam_config::FOV.to_radians(),
+            aspect_ratio,
+            cam_config::NEAR_PLANE,
+            cam_config::FAR_PLANE,
+        )
     }
 
     /// Returns view matrix without translation (for skybox)

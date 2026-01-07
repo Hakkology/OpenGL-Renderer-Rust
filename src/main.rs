@@ -4,6 +4,7 @@ extern crate glfw;
 mod app;
 mod assets;
 mod camera;
+mod config;
 mod game;
 pub mod importer;
 mod input;

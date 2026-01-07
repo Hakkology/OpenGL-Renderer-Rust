@@ -2,6 +2,7 @@ use glam::{Quat, Vec2, Vec3};
 use glfw::{Action, WindowEvent};
 use std::rc::Rc;
 
+use crate::assets::paths::{models, names, shaders, textures};
 use crate::assets::AssetManager;
 use crate::camera::OrbitCamera;
 use crate::input::Input;
@@ -62,44 +63,37 @@ impl Game {
 
         // 1. Shaders
         let colored_shader = assets.load_shader(
-            "colored",
-            "assets/shaders/lit.vert",
-            "assets/shaders/lit_color.frag",
+            names::SHADER_COLORED,
+            shaders::LIT_VERT,
+            shaders::LIT_COLOR_FRAG,
         );
         let textured_shader = assets.load_shader(
-            "textured",
-            "assets/shaders/lit.vert",
-            "assets/shaders/lit_textured.frag",
+            names::SHADER_TEXTURED,
+            shaders::LIT_VERT,
+            shaders::LIT_TEXTURED_FRAG,
         );
         let ui_shader = assets.load_shader(
-            "ui_text",
-            "assets/shaders/ui.vert",
-            "assets/shaders/ui_text.frag",
+            names::SHADER_UI_TEXT,
+            shaders::UI_VERT,
+            shaders::UI_TEXT_FRAG,
         );
         let ui_rect_shader = assets.load_shader(
-            "ui_color",
-            "assets/shaders/ui.vert",
-            "assets/shaders/ui_color.frag",
+            names::SHADER_UI_COLOR,
+            shaders::UI_VERT,
+            shaders::UI_COLOR_FRAG,
         );
         let skybox_shader = assets.load_shader(
-            "skybox",
-            "assets/shaders/skybox.vert",
-            "assets/shaders/skybox.frag",
+            names::SHADER_SKYBOX,
+            shaders::SKYBOX_VERT,
+            shaders::SKYBOX_FRAG,
         );
 
         // 2. Textures
-        let texture = assets.load_texture(
-            "grass",
-            "assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
-        );
-        let sphere_texture =
-            assets.load_texture("stone", "assets/resources/textures/StoneBricks_1K.tiff");
+        let texture = assets.load_texture(names::TEX_GRASS, textures::GRASS);
+        let sphere_texture = assets.load_texture(names::TEX_STONE, textures::STONE_BRICKS);
 
         // 3. Cubemap
-        let skybox_cubemap = assets.load_cubemap(
-            "skybox",
-            "assets/resources/textures/Cubemap_Sky_22-512x512.png",
-        );
+        let skybox_cubemap = assets.load_cubemap(names::TEX_SKYBOX, textures::SKYBOX);
 
         let text_renderer = TextRenderer::new(ui_shader);
         let ui_manager = UIManager::new(text_renderer, ui_rect_shader);
@@ -110,12 +104,9 @@ impl Game {
         let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.3, 1.0, 32.0);
 
         // Models
-        let tree2_model = assets.load_model("tree", "assets/resources/models/Tree2/trees9.obj");
-        let xwing_model = assets.load_model("xwing", "assets/resources/models/xwing/x-wing.obj");
-        let statue_model = assets.load_model(
-            "statue",
-            "assets/resources/models/Statue/12334_statue_v1_l3.obj",
-        );
+        let tree2_model = assets.load_model(names::MODEL_TREE, models::TREE);
+        let xwing_model = assets.load_model(names::MODEL_XWING, models::XWING);
+        let statue_model = assets.load_model(names::MODEL_STATUE, models::STATUE);
 
         // Shared Meshes
         let cube_mesh = Rc::new(Cube::new(1.0));

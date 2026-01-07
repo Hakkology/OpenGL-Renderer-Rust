@@ -9,7 +9,10 @@ A modular and performant 3D rendering engine built with **Rust** and **OpenGL**.
   - **Phong Lighting**: Implements Ambient, Diffuse, and Specular reflection components.
   - **Textured Models**: Support for diffuse and specular maps.
   - **Skybox**: High-quality cubemap rendering for immersive backgrounds.
-  - **Shadow Mapping**: Real-time shadow generation for depth perception.
+  - **Shadow Mapping System**:
+  - **Directional Shadows**: Parallel light shadows for sun-like lighting.
+  - **Omnidirectional Shadows**: 360-degree real-time shadows for point lights (using cubemaps and geometry shaders).
+  - **Optimized Rendering**: Interleaved shadow updates and selective depth pass rendering for high performance.
 - **Model Import**: Robust 3D model loading using **Assimp** (via `russimp`), supporting formats like `.obj`, `.blend`, `.fbx`, etc.
 - **Texture Support**: Loads standard image formats (JPG, PNG, TIFF) as textures.
 

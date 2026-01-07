@@ -63,6 +63,7 @@ pub struct Game {
     light_space_matrix: Mat4,
     selected_object_id: Option<usize>,
     inspector: Inspector,
+    frame_count: u64,
 }
 
 impl Game {
@@ -387,6 +388,7 @@ impl Game {
             light_space_matrix: Mat4::IDENTITY,
             selected_object_id: None,
             inspector: Inspector::new(1070.0, 500.0),
+            frame_count: 0,
         }
     }
 
@@ -431,42 +433,37 @@ impl Game {
         self.shadow_map.end_pass(1280, 720);
     }
 
-    fn render_point_shadow_pass(&self) {
+    fn render_point_shadow_pass(&mut self) {
         let far_plane = 25.0;
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::CullFace(gl::FRONT); // Render back faces for depth map
         }
 
-        for (i, pl) in self.point_lights.iter().enumerate() {
-            if i >= self.point_shadow_maps.len() {
-                break;
+        // DEEP OPTIMIZATION: Only update ONE light's shadow map per frame.
+        // This reduces point light shadow rendering cost by 75%.
+        let light_to_update = (self.frame_count % 4) as usize;
+
+        if let Some(pl) = self.point_lights.get(light_to_update) {
+            if let Some(psm) = self.point_shadow_maps.get(light_to_update) {
+                psm.begin_pass(pl.position, far_plane);
+
+                // Draw objects to depth cubemap (optimized)
+                self.center_cube.render_depth(&psm.shader);
+                self.green_cube.render_depth(&psm.shader);
+                self.red_cube.render_depth(&psm.shader);
+                self.floor.render_depth(&psm.shader);
+
+                for obj in &self.capsules {
+                    obj.render_depth(&psm.shader);
+                }
+
+                for s in &self.statues {
+                    s.render_depth(&psm.shader);
+                }
+
+                psm.end_pass(1280, 720);
             }
-            let psm = &self.point_shadow_maps[i];
-            psm.begin_pass(pl.position, far_plane);
-
-            // Draw critical objects to depth cubemap (optimized)
-            self.center_cube.render_depth(&psm.shader);
-            self.green_cube.render_depth(&psm.shader);
-            self.red_cube.render_depth(&psm.shader);
-
-            // Skip floor for point shadows if performance is still an issue,
-            // but keep it for now as it's the main shadow receiver.
-            self.floor.render_depth(&psm.shader);
-
-            for obj in &self.capsules {
-                obj.render_depth(&psm.shader);
-            }
-
-            // Only render statues to their own light's shadow pass if nearby
-            for s in &self.statues {
-                s.render_depth(&psm.shader);
-            }
-
-            // Skip complex/distant objects like trees in point shadow passes
-            // for obj in &self.trees { obj.render_depth(&psm.shader); }
-
-            psm.end_pass(1280, 720);
         }
 
         unsafe {
@@ -936,6 +933,8 @@ impl RenderMode for Game {
 
             self.point_lights[i].position = Vec3::new(light_x, light_y, light_z);
         }
+
+        self.frame_count += 1;
     }
 
     fn render(&mut self) {

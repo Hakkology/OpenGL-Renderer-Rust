@@ -13,6 +13,7 @@ use crate::math::ray::Ray;
 use crate::primitives::{Capsule, Cube, Plane, Skybox, Sphere};
 use crate::scene::collider::Collider;
 use crate::scene::context::RenderContext;
+use crate::scene::manager::Scene;
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
 use crate::scene::object::SceneObject3D;
 use crate::shaders::{CubeMap, Shader, Texture};
@@ -27,15 +28,8 @@ pub trait RenderMode {
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time);
 }
 pub struct Game {
-    // Scene Objects
-    objects: Vec<SceneObject3D>,
-    // Special object IDs for animation/logic
-    green_cube_id: usize,
-    red_cube_id: usize,
-    orbiting_sphere_ids: Vec<usize>,
-    capsule_ids: Vec<usize>,
-    statue_ids: Vec<usize>,
-    xwing_id: usize,
+    // Scene
+    scene: Scene,
 
     skybox: Skybox,
 
@@ -178,36 +172,32 @@ impl Game {
             receive_shadows: true,
         });
 
-        let mut objects = Vec::new();
+        let mut scene = Scene::new();
 
         // Create Scene Objects
         let center_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), grass_material.clone())
             .with_name("Center Cube")
             .with_collider(Collider::new_cube(1.0));
-        objects.push(center_cube);
+        scene.add_object(center_cube);
 
         let green_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), green_material.clone())
             .with_name("Green Cube")
             .with_collider(Collider::new_cube(1.0));
-        let green_cube_id = green_cube.id;
-        objects.push(green_cube);
+        scene.green_cube_id = scene.add_object(green_cube);
 
         let red_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), red_material.clone())
             .with_name("Red Cube")
             .with_collider(Collider::new_cube(1.0));
-        let red_cube_id = red_cube.id;
-        objects.push(red_cube);
+        scene.red_cube_id = scene.add_object(red_cube);
 
-        let mut orbiting_sphere_ids = Vec::new();
         for i in 0..2 {
             let sphere = SceneObject3D::new(Box::new(sphere_mesh.clone()), stone_material.clone())
                 .with_name(&format!("Orbiting Sphere {}", i))
                 .with_collider(Collider::new_sphere(0.6));
-            orbiting_sphere_ids.push(sphere.id);
-            objects.push(sphere);
+            scene.orbiting_sphere_ids.push(sphere.id);
+            scene.add_object(sphere);
         }
 
-        let mut capsule_ids = Vec::new();
         for i in 0..2 {
             let capsule =
                 SceneObject3D::new(Box::new(capsule_mesh.clone()), grass_material.clone())
@@ -216,8 +206,8 @@ impl Game {
                         Vec3::new(-0.4, -1.0, -0.4),
                         Vec3::new(0.4, 1.0, 0.4),
                     ));
-            capsule_ids.push(capsule.id);
-            objects.push(capsule);
+            scene.capsule_ids.push(capsule.id);
+            scene.add_object(capsule);
         }
 
         let mut floor = SceneObject3D::new(Box::new(plane_mesh), grass_material.clone())
@@ -227,7 +217,7 @@ impl Game {
                 Vec3::new(40.0, 0.01, 40.0),
             ));
         floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
-        objects.push(floor);
+        scene.add_object(floor);
 
         // Walls
         let wall_height = 8.0;
@@ -258,28 +248,28 @@ impl Game {
             .with_collider(Collider::new_cube(1.0));
         w1.transform.position = Vec3::new(half_size, -4.0 + wall_height / 2.0, 0.0);
         w1.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
-        objects.push(w1);
+        scene.add_object(w1);
 
         let mut w2 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall -X")
             .with_collider(Collider::new_cube(1.0));
         w2.transform.position = Vec3::new(-half_size, -4.0 + wall_height / 2.0, 0.0);
         w2.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
-        objects.push(w2);
+        scene.add_object(w2);
 
         let mut w3 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall +Z")
             .with_collider(Collider::new_cube(1.0));
         w3.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, half_size);
         w3.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
-        objects.push(w3);
+        scene.add_object(w3);
 
         let mut w4 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall -Z")
             .with_collider(Collider::new_cube(1.0));
         w4.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, -half_size);
         w4.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
-        objects.push(w4);
+        scene.add_object(w4);
 
         // Load Trees
         let tree2_model = Rc::new(
@@ -298,7 +288,7 @@ impl Game {
                     ));
             tree.transform.position = *pos;
             tree.transform.scale = Vec3::splat(0.8);
-            objects.push(tree);
+            scene.add_object(tree);
         }
 
         // Load X-Wing
@@ -318,8 +308,7 @@ impl Game {
             .with_collider(Collider::new_sphere(2.0));
         xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
         xwing.transform.scale = Vec3::splat(1.0);
-        let xwing_id = xwing.id;
-        objects.push(xwing);
+        scene.xwing_id = scene.add_object(xwing);
 
         // Load Statues
         let statue_model = Rc::new(
@@ -327,7 +316,6 @@ impl Game {
                 .expect("Failed to load statue"),
         );
 
-        let mut statue_ids = Vec::new();
         let statue_configs = [
             (Vec3::new(0.0, -3.9, 20.0), 180.0f32),
             (Vec3::new(0.0, -3.9, -20.0), 0.0f32),
@@ -343,8 +331,8 @@ impl Game {
             s.transform.scale = Vec3::splat(0.01);
             s.transform.rotation = Quat::from_rotation_y(yaw_deg.to_radians())
                 * Quat::from_rotation_x(-90.0f32.to_radians());
-            statue_ids.push(s.id);
-            objects.push(s);
+            scene.statue_ids.push(s.id);
+            scene.add_object(s);
         }
 
         // Initialize 4 Point Lights
@@ -367,13 +355,7 @@ impl Game {
         }
 
         Self {
-            objects,
-            green_cube_id,
-            red_cube_id,
-            orbiting_sphere_ids,
-            capsule_ids,
-            statue_ids,
-            xwing_id,
+            scene,
 
             skybox: Skybox::new(),
             ui_rect_shader,
@@ -413,7 +395,7 @@ impl Game {
         self.shadow_map
             .set_light_space_matrix(&self.light_space_matrix);
 
-        for obj in &self.objects {
+        for obj in &self.scene.objects {
             obj.render_depth(&self.shadow_map.shader);
         }
         self.shadow_map.end_pass(1280, 720);
@@ -428,7 +410,7 @@ impl Game {
             if let Some(pl) = self.point_lights.get(light_idx) {
                 if let Some(psm) = self.point_shadow_maps.get(light_idx) {
                     psm.begin_pass(pl.position, far_plane);
-                    for obj in &self.objects {
+                    for obj in &self.scene.objects {
                         obj.render_depth(&psm.shader);
                     }
                     psm.end_pass(1280, 720);
@@ -450,7 +432,7 @@ impl Game {
             light_space_matrix: self.light_space_matrix,
         };
 
-        for obj in &self.objects {
+        for obj in &self.scene.objects {
             obj.render(&context);
         }
     }
@@ -480,7 +462,7 @@ impl Game {
 
         if let Some(id) = self.selected_object_id {
             let mut found = None;
-            for obj in &self.objects {
+            for obj in &self.scene.objects {
                 if obj.id == id {
                     found = Some((obj.name.clone(), obj.transform.position));
                     break;
@@ -501,68 +483,17 @@ impl Game {
     }
 
     fn cast_ray(&self, ray: &Ray) -> Option<usize> {
-        let mut min_dist = f32::MAX;
-        let mut hit_id = None;
-        let mut check = |dist: f32, id: usize| {
-            if dist < min_dist {
-                min_dist = dist;
-                hit_id = Some(id);
-            }
-        };
-
-        // Unified Raycasting
-        for obj in &self.objects {
-            if let Some(dist) = obj
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &obj.transform))
-            {
-                check(dist, obj.id);
-            }
-        }
-
-        hit_id
+        self.scene.cast_ray(ray)
     }
 
     fn apply_transform_delta(&mut self, id: usize, delta: Vec3) {
-        for obj in &mut self.objects {
-            if obj.id == id {
-                obj.transform.position += delta;
-                break;
-            }
+        if let Some(obj) = self.scene.get_object_mut(id) {
+            obj.transform.position += delta;
         }
     }
 
     fn check_intersection(&self, ray: &Ray) {
-        let mut min_dist = f32::MAX;
-        let mut hit_object: Option<(String, usize)> = None;
-
-        // Helper closure to check intersection and update nearest
-        let mut check = |dist: f32, name: &str, id: usize| {
-            if dist < min_dist {
-                min_dist = dist;
-                hit_object = Some((name.to_string(), id));
-            }
-        };
-
-        for obj in &self.objects {
-            if let Some(dist) = obj
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &obj.transform))
-            {
-                check(dist, &obj.name, obj.id);
-            }
-        }
-
-        if let Some((name, id)) = hit_object {
-            println!(
-                "Raycast Hit: '{}' (ID: {}) at distance {:.2}",
-                name, id, min_dist
-            );
-        } else {
-            println!("Raycast Miss");
-        }
+        self.scene.check_intersection(ray);
     }
 }
 
@@ -581,20 +512,25 @@ impl RenderMode for Game {
         self.input.reset_delta();
 
         // Animated Objects logic
-        for obj in &mut self.objects {
-            if obj.id == self.green_cube_id {
+        for obj in &mut self.scene.objects {
+            if obj.id == self.scene.green_cube_id {
                 obj.transform.position = Vec3::new(0.0, 2.0, 0.0);
                 obj.transform.rotation = Quat::from_rotation_y(current_time);
-            } else if obj.id == self.red_cube_id {
+            } else if obj.id == self.scene.red_cube_id {
                 obj.transform.position = Vec3::new(0.0, -2.0, 0.0);
                 obj.transform.rotation = Quat::from_rotation_y(-current_time);
-            } else if let Some(i) = self.orbiting_sphere_ids.iter().position(|&id| id == obj.id) {
+            } else if let Some(i) = self
+                .scene
+                .orbiting_sphere_ids
+                .iter()
+                .position(|&id| id == obj.id)
+            {
                 let configs = [(2.5, 1.2), (4.0, 0.8)];
                 let (radius, speed) = configs[i];
                 let x = (current_time * speed).cos() * radius;
                 let z = (current_time * speed).sin() * radius;
                 obj.transform.position = Vec3::new(x, 0.0, z);
-            } else if let Some(i) = self.capsule_ids.iter().position(|&id| id == obj.id) {
+            } else if let Some(i) = self.scene.capsule_ids.iter().position(|&id| id == obj.id) {
                 let tilt = 45.0f32.to_radians();
                 let tilt_quat = Quat::from_rotation_z(tilt);
                 let offset = i as f32 * std::f32::consts::PI;
@@ -605,7 +541,7 @@ impl RenderMode for Game {
                 obj.transform.position = tilted_pos;
                 obj.transform.rotation =
                     Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
-            } else if obj.id == self.xwing_id {
+            } else if obj.id == self.scene.xwing_id {
                 // X-Wing: Slight oscillation
                 obj.transform.position.y = 50.0 + (current_time * 0.5).sin() * 2.0;
             }
@@ -613,8 +549,8 @@ impl RenderMode for Game {
 
         // Update Point Lights based on statue positions
         for i in 0..4 {
-            let s_id = self.statue_ids[i];
-            if let Some(statue) = self.objects.iter().find(|o| o.id == s_id) {
+            let s_id = self.scene.statue_ids[i];
+            if let Some(statue) = self.scene.objects.iter().find(|o| o.id == s_id) {
                 let statue_pos = statue.transform.position;
                 let light_radius = 2.0;
                 let light_speed = 1.0;

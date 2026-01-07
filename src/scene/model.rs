@@ -1,7 +1,6 @@
 extern crate gl;
-use gl::types::*;
-use std::rc::Rc;
 use crate::scene::object::Renderable;
+use gl::types::*;
 
 pub struct Mesh {
     vao: GLuint,
@@ -40,17 +39,31 @@ impl Mesh {
             );
 
             let stride = (8 * std::mem::size_of::<f32>()) as i32;
-            
+
             // Position
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, std::ptr::null());
             gl::EnableVertexAttribArray(0);
-            
+
             // Texture Coords
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride, (3 * std::mem::size_of::<f32>()) as *const _);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (3 * std::mem::size_of::<f32>()) as *const _,
+            );
             gl::EnableVertexAttribArray(2);
-            
+
             // Normals
-            gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, stride, (5 * std::mem::size_of::<f32>()) as *const _);
+            gl::VertexAttribPointer(
+                1,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (5 * std::mem::size_of::<f32>()) as *const _,
+            );
             gl::EnableVertexAttribArray(1);
 
             gl::BindVertexArray(0);
@@ -67,7 +80,12 @@ impl Mesh {
     pub fn draw(&self) {
         unsafe {
             gl::BindVertexArray(self.vao);
-            gl::DrawElements(gl::TRIANGLES, self.indices_count, gl::UNSIGNED_INT, std::ptr::null());
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.indices_count,
+                gl::UNSIGNED_INT,
+                std::ptr::null(),
+            );
             gl::BindVertexArray(0);
         }
     }
@@ -100,5 +118,3 @@ impl Renderable for Model {
         }
     }
 }
-
-

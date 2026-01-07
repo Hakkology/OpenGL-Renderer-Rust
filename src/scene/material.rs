@@ -40,8 +40,7 @@ pub struct TexturedMaterial {
     pub shader: Rc<Shader>,
     pub texture: Rc<Texture>,
     pub is_lit: bool,
-    pub repeat_x: bool,
-    pub repeat_y: bool,
+    pub is_repeated: bool,
     pub uv_scale: Vec2, // Renamed from texture_scale for clarity
     pub receive_shadows: bool,
 }
@@ -55,9 +54,8 @@ impl Material for TexturedMaterial {
         self.shader.use_program();
         self.texture.bind(0);
         self.shader.set_int("u_Texture", 0);
-        // Send separate repeat flags and scale
-        self.shader.set_int("u_RepeatX", if self.repeat_x { 1 } else { 0 });
-        self.shader.set_int("u_RepeatY", if self.repeat_y { 1 } else { 0 });
+        // Send repeat flag and scale
+        self.shader.set_int("u_IsRepeated", if self.is_repeated { 1 } else { 0 });
         self.shader.set_vec2("u_UVScale", self.uv_scale.x, self.uv_scale.y); // Manual UV scaling
     }
     

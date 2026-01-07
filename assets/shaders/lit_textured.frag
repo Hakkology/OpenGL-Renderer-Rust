@@ -87,14 +87,15 @@ vec3 calcPointLight(vec3 norm, vec3 viewDir) {
 uniform int u_UseLighting;
 uniform int u_UseShadows;
 
-uniform int u_RepeatX;
-uniform int u_RepeatY;
+uniform int u_IsRepeated;
 uniform vec2 u_UVScale;
 
 void main() {
     vec2 coords = TexCoord;
-    if (u_RepeatX != 0) coords.x *= u_UVScale.x;
-    if (u_RepeatY != 0) coords.y *= u_UVScale.y;
+    if (u_IsRepeated != 0) {
+        coords.x *= u_UVScale.x;
+        coords.y *= u_UVScale.y;
+    }
     
     vec4 texColor = texture(u_Texture, coords);
     vec3 result;

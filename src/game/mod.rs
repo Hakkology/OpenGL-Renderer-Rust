@@ -136,8 +136,7 @@ impl Game {
             shader: textured_shader.clone(),
             texture: texture.clone(),
             is_lit: true,
-            repeat_x: false,
-            repeat_y: false,
+            is_repeated: false,
             uv_scale: Vec2::ONE,
             receive_shadows: true,
         });
@@ -148,8 +147,7 @@ impl Game {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
             is_lit: true,
-            repeat_x: false,
-            repeat_y: false,
+            is_repeated: false,
             uv_scale: Vec2::ONE,
             receive_shadows: true,
         });
@@ -215,9 +213,8 @@ impl Game {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
             is_lit: true,
-            repeat_x: true,
-            repeat_y: true,
-            uv_scale: Vec2::new(wall_height, plane_size), // Swapped based on user feedback that X walls were wrong
+            is_repeated: true,
+            uv_scale: Vec2::new(wall_height /8.0, plane_size /8.0), // Swapped based on user feedback that X walls were wrong
             receive_shadows: true,
         });
 
@@ -228,9 +225,8 @@ impl Game {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
             is_lit: true,
-            repeat_x: true,
-            repeat_y: true,
-            uv_scale: Vec2::new(plane_size, wall_height), // U follows X (80), V follows Y (8)
+            is_repeated: true,
+            uv_scale: Vec2::new(plane_size /8.0, wall_height /8.0), // U follows X (80), V follows Y (8)
             receive_shadows: true,
         });
 

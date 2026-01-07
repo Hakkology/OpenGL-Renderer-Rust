@@ -1,69 +1,111 @@
-# OpenGL Renderer in Rust
+# OpenGL Renderer in Rust 🦀
 
-A modular and performant 3D rendering engine built with **Rust** and **OpenGL**. This project demonstrates advanced rendering techniques, including real-time lighting, shadow mapping, model loading, and a flexible camera system.
+A high-performance, modular 3D rendering engine built with **Rust** and **OpenGL 3.3+**. This project demonstrates advanced graphics programming concepts including dynamic lighting, shadow mapping, model loading, and a custom UI system, all architected with Rust's safety and performance in mind.
 
-## 🚀 Key Features
+![OpenGL Renderer](https://via.placeholder.com/1280x720?text=OpenGL+Renderer+Screenshot)
+
+## ✨ Features
 
 ### 🎨 Rendering & Graphics
-- **Advanced Shaders**: Custom GLSL shaders for various material types:
-  - **Phong Lighting**: Implements Ambient, Diffuse, and Specular reflection components.
-  - **Textured Models**: Support for diffuse and specular maps.
-  - **Skybox**: High-quality cubemap rendering for immersive backgrounds.
-  - **Shadow Mapping System**:
-  - **Directional Shadows**: Parallel light shadows for sun-like lighting.
-  - **Omnidirectional Shadows**: 360-degree real-time shadows for point lights (using cubemaps and geometry shaders).
-  - **Optimized Rendering**: Interleaved shadow updates and selective depth pass rendering for high performance.
-- **Model Import**: Robust 3D model loading using **Assimp** (via `russimp`), supporting formats like `.obj`, `.blend`, `.fbx`, etc.
-- **Texture Support**: Loads standard image formats (JPG, PNG, TIFF) as textures.
+*   **Modern OpenGL (Core Profile):** Uses strict OpenGL 3.3+ core profile functions via the `gl` crate.
+*   **Phong Lighting Model:** 
+    *   **Directional Light:** Simulates sun-like global lighting.
+    *   **Point Lights:** Multiple colored point lights with attenuation (distance fade).
+    *   **Material System:** Supports colored and textured materials with configurable ambient, diffuse, and specular properties.
+*   **Advanced Shadows:**
+    *   **Directional Shadows:** High-res shadow mapping for the main light source.
+    *   **Omnidirectional Shadows:** Point light shadows using Cubemaps and Geometry Shaders.
+    *   **PCF (Percentage-Closer Filtering):** Soft shadow edges for a realistic look.
+*   **Skybox:** High-quality cubemap skybox background.
+*   **Texture Mapping:** Support for diffuse maps, repeating textures, and UV scaling.
 
-### 🎥 Camera & Controls
-- **Orbit Camera**: Smooth 3rd-person camera control to inspect scenes.
-- **Zoom**: Mouse wheel support for dynamic field-of-view adjustment.
-- **Input Handling**: Integrated mouse and keyboard event system.
-- **Raycasting**: Interaction system to detect objects under the cursor (e.g., "Raycast Hit: 'Wall +Z'").
+### 🏗️ Engine Architecture
+*   **Scene Graph System:** Hierarchical object management with `SceneObject3D`.
+*   **Component-Based Logic:** Flexible `Controller` trait for adding behaviors (e.g., `OrbitController`, `RotationController`, `FloatingController`).
+*   **Asset Management:** Centralized `AssetManager` for caching and loading shaders, textures, and models.
+*   **Model Loading:** Robust model importer using `russimp` (Assimp bindings) supporting **OBJ, FBX**, and other formats with automatic triangulation and UV flipping.
+*   **Generic Primitive Shapes:** Built-in generators for Cube, Sphere, Plane, Capsule, and quad primitives.
 
-### 🛠 System Architecture
-- **Modular Design**: Codebase organized into distinct modules (`game`, `light`, `shaders`, `camera`, etc.) for maintainability.
-- **UI System**: Custom `TextRenderer` for drawing debug information and UI overlays.
-- **Component-Based Lights**: Flexible lighting system supporting multiple light sources.
+### 🖥️ User Interface (UI)
+*   **Custom 2D Renderer:** Orthographic projection based UI rendering integrated into the 3D pipeline.
+*   **Text Rendering:** High-quality text rendering using `rusttype`.
+*   **Interactive Widgets:** 
+    *   **Inspector Panel:** Real-time modification of object transforms (Position, Rotation, Scale).
+    *   **Buttons:** Interactive UI elements (e.g., Pause/Resume).
+    *   **Raycasting:** 3D object selection by clicking on the scene.
 
----
+### 🎥 Camera System
+*   **Orbit Camera:** Maya/Unity-style camera controls.
+*   **Zoom & Pan:** Smooth zooming with mouse scroll and dynamic distance calculation.
 
-## 💻 Build & Setup
+## 🚀 Getting Started
 
-To build and run this project, you need the **Rust** toolchain installed.
+### Prerequisites
 
-### System Dependencies
+1.  **Rust Toolchain:** Ensure you have Rust installed.
+    ```sh
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    ```
+2.  **C/C++ Build Tools:** Required for compiling dependencies like `glfw-sys` and `russimp`.
+    *   **Windows:** Visual Studio with C++ Desktop Development workload.
+    *   **Linux:** `build-essential`, `cmake`, `libclang-dev`.
+3.  **CMake:** Required for building `russimp`.
 
-This project relies on `russimp` (Assimp bindings) and `glfw`, which require system-level C++ libraries to be built from source.
+### Installation
 
-#### Ubuntu / Debian (Linux)
+1.  Clone the repository:
+    ```sh
+    git clone https://github.com/yourusername/opengl-renderer-rust.git
+    cd opengl-renderer-rust
+    ```
 
-You must install build tools and libraries manually before running `cargo run`:
+2.  Build the project (this may take a few minutes as it compiles dependencies):
+    ```sh
+    cargo build --release
+    ```
 
-```bash
-sudo apt-get update
-# Essential build tools and libraries for Assimp, GLFW, and Windowing
-sudo apt-get install cmake clang libclang-dev ninja-build build-essential libxi-dev libxcursor-dev libxinerama-dev libxrandr-dev xorg-dev
-```
-
-#### Windows
-
-1.  **Visual Studio C++ Build Tools** (VS 2019 or 2022) must be installed.
-2.  **CMake** must be installed and added to your system `PATH`.
-3.  The project is configured in `Cargo.toml` to **statically link** Assimp by building it from source via a Git dependency patch.
-
-## ▶️ How to Run
-
-```bash
-cargo run
-```
-
-*Note: The first build will take some time as it compiles `Assimp` from source.*
+3.  Run the application:
+    ```sh
+    cargo run --release
+    ```
 
 ## 🎮 Controls
 
-- **Mouse Move**: Rotate Camera (Orbit)
-- **Scroll**: Zoom In/Out
-- **Shift + Move**: Sprint (2x Speed)
-- **Esc**: Exit Application
+| Interaction | Action |
+|-------------|--------|
+| **Left Click + Drag** | Rotate Camera (Orbital) |
+| **Mouse Scroll** | Zoom In / Out |
+| **Shift + WASD** | Move Camera Focus Point (Pan) |
+| **Left Click (on Object)** | Select Object (appears in Inspector) |
+| **Inspector Panel** | Use `+` / `-` buttons to move selected object |
+| **Pause Button** | Pause/Resume object animations |
+| **ESC** | Close Application |
+
+## 📂 Project Structure
+
+*   `src/main.rs`: Entry point. Initializes the Window and Application loop.
+*   `src/game/`: Contains the main game logic (`Game` struct), scene setup, and loop handling.
+*   `src/renderer/`: Core rendering logic, shadow passes, and forward rendering pipeline.
+*   `src/scene/`: Data structures for Scene, Objects, Materials, and Colliders.
+*   `src/shaders/`: GLSL shader loading and program management.
+*   `src/assets/`: Asset manager and path constants.
+*   `src/importer/`: Model loading implementation (FBX/OBJ via Assimp).
+*   `src/ui/`: UI system, Button, Inspector, and Text Rendering logic.
+*   `src/input/`: Keyboard and Mouse input handling.
+*   `assets/`: Directory containing shaders (`.vert`, `.frag`), models, and textures.
+
+## 🛠️ Built With
+
+*   [**gl**](https://crates.io/crates/gl): OpenGL function pointers.
+*   [**glfw**](https://crates.io/crates/glfw): Window creation and input handling.
+*   [**glam**](https://crates.io/crates/glam): Fast linear algebra (vectors, matrices).
+*   [**russimp**](https://crates.io/crates/russimp): Rust bindings for the Assimp library (Asset Import).
+*   [**image**](https://crates.io/crates/image): Loading texture images.
+*   [**rusttype**](https://crates.io/crates/rusttype): Font loading and text rendering.
+
+## 📜 License
+
+This project is open-source and available under the **MIT License**.
+
+---
+*Created with ❤️ in Rust*

@@ -1,6 +1,6 @@
-use glam::{Mat4, Vec3};
 use crate::input::Input;
 use crate::math::ray::Ray;
+use glam::{Mat4, Vec3};
 
 pub struct OrbitCamera {
     pub position: Vec3,
@@ -34,7 +34,7 @@ impl OrbitCamera {
         if input.is_mouse_button_pressed(glfw::MouseButtonLeft) {
             self.yaw += input.mouse.delta.x * self.sensitivity * delta_time;
             self.pitch -= input.mouse.delta.y * self.sensitivity * delta_time;
-            
+
             self.pitch = self.pitch.clamp(-89.0, 89.0);
         }
 
@@ -45,39 +45,45 @@ impl OrbitCamera {
         // Calculate forward vector (view direction stored in Spherical Coords)
         let yaw_rad = self.yaw.to_radians();
         let pitch_rad = self.pitch.to_radians();
-        
+
         let forward = Vec3::new(
             yaw_rad.cos() * pitch_rad.cos(),
             pitch_rad.sin(),
-            yaw_rad.sin() * pitch_rad.cos()
-        ).normalize();
-        
+            yaw_rad.sin() * pitch_rad.cos(),
+        )
+        .normalize();
+
         let right = forward.cross(Vec3::Y).normalize();
 
         // WASD Movement (Moving the target/center of orbit)
         // W/S moves forward/back relative to view
-        let move_speed = 5.0 * delta_time; // Adjustable speed
-        
+        let mut speed_multiplier = 1.0;
+        if input.is_key_pressed(glfw::Key::LeftShift) || input.is_key_pressed(glfw::Key::RightShift)
+        {
+            speed_multiplier = 2.0;
+        }
+        let move_speed = 5.0 * speed_multiplier * delta_time; // Adjustable speed
+
         // Project forward to XZ plane for "FPS like" movement or standard free cam
         // User requested: "w up, A left" -> typical WASD
         // Usually W moves "forward" in view direction.
         // For an orbit camera, moving "forward" usually means moving the pivot closer/further or moving the pivot in the scene.
         // Let's implement panning the pivot point on XZ plane relative to camera view.
-        
+
         let flat_forward = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
         let flat_right = Vec3::new(right.x, 0.0, right.z).normalize_or_zero();
 
         if input.is_key_pressed(glfw::Key::W) {
-             self.target += flat_forward * move_speed;
+            self.target += flat_forward * move_speed;
         }
         if input.is_key_pressed(glfw::Key::S) {
-             self.target -= flat_forward * move_speed;
+            self.target -= flat_forward * move_speed;
         }
         if input.is_key_pressed(glfw::Key::A) {
-             self.target -= flat_right * move_speed;
+            self.target -= flat_right * move_speed;
         }
         if input.is_key_pressed(glfw::Key::D) {
-             self.target += flat_right * move_speed;
+            self.target += flat_right * move_speed;
         }
         // Optional: E/Q for Up/Down? Or just keep it planar.
         // Let's keep it simplest for now.
@@ -85,7 +91,7 @@ impl OrbitCamera {
         self.position.x = self.distance * yaw_rad.cos() * pitch_rad.cos();
         self.position.y = self.distance * pitch_rad.sin();
         self.position.z = self.distance * yaw_rad.sin() * pitch_rad.cos();
-        
+
         self.position += self.target;
     }
 
@@ -103,23 +109,29 @@ impl OrbitCamera {
         Mat4::from_mat3(glam::Mat3::from_mat4(view))
     }
 
-    pub fn screen_point_to_ray(&self, screen_x: f32, screen_y: f32, screen_width: f32, screen_height: f32) -> Ray {
+    pub fn screen_point_to_ray(
+        &self,
+        screen_x: f32,
+        screen_y: f32,
+        screen_width: f32,
+        screen_height: f32,
+    ) -> Ray {
         let x = (2.0 * screen_x) / screen_width - 1.0;
         let y = 1.0 - (2.0 * screen_y) / screen_height;
-        
+
         let projection = self.projection_matrix(screen_width / screen_height);
         let view = self.view_matrix();
         let inv_vp = (projection * view).inverse();
-        
+
         let ndc_near = glam::Vec4::new(x, y, -1.0, 1.0);
-        let ndc_far  = glam::Vec4::new(x, y, 1.0, 1.0);
-        
+        let ndc_far = glam::Vec4::new(x, y, 1.0, 1.0);
+
         let mut world_near = inv_vp * ndc_near;
         world_near /= world_near.w;
-        
+
         let mut world_far = inv_vp * ndc_far;
         world_far /= world_far.w;
-        
+
         Ray::new(world_near.truncate(), (world_far - world_near).truncate())
     }
 }

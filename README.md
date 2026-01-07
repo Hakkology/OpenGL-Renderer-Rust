@@ -62,4 +62,5 @@ cargo run
 
 - **Mouse Move**: Rotate Camera (Orbit)
 - **Scroll**: Zoom In/Out
+- **Shift + Move**: Sprint (2x Speed)
 - **Esc**: Exit Application

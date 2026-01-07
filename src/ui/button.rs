@@ -27,10 +27,6 @@ impl Button {
     }
 
     pub fn is_clicked(&self, mouse_x: f32, mouse_y: f32, window_height: f32) -> bool {
-        // OpenGL coords usually 0 at bottom, but GLFW mouse often 0 at top.
-        // If window is 800x600, mouse (x, 0) is top.
-        // My UI rendering uses 0 at bottom (Ortho 0..height).
-        // So we need to flip mouse_y.
         let corrected_mouse_y = window_height - mouse_y;
 
         mouse_x >= self.x

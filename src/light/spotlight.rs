@@ -1,8 +1,9 @@
-use glam::Vec3;
-use crate::shaders::Shader;
 use super::components::{LightProperties, SpotCone};
 use super::Light;
+use crate::shaders::Shader;
+use glam::Vec3;
 
+// Not used in the project but can be used later.
 #[allow(dead_code)]
 pub struct SpotLight {
     pub position: Vec3,
@@ -26,15 +27,36 @@ impl SpotLight {
         self
     }
 
-    pub fn simple(position: Vec3, direction: Vec3, ambient: f32, diffuse: f32, specular: f32, shininess: f32) -> Self {
-        Self::new(position, direction, LightProperties::new(ambient, diffuse, specular, shininess))
+    pub fn simple(
+        position: Vec3,
+        direction: Vec3,
+        ambient: f32,
+        diffuse: f32,
+        specular: f32,
+        shininess: f32,
+    ) -> Self {
+        Self::new(
+            position,
+            direction,
+            LightProperties::new(ambient, diffuse, specular, shininess),
+        )
     }
 }
 
 impl Light for SpotLight {
     fn apply_to_shader(&self, shader: &Shader, view_pos: Vec3) {
-        shader.set_vec3("spotLightPos", self.position.x, self.position.y, self.position.z);
-        shader.set_vec3("spotLightDir", self.direction.x, self.direction.y, self.direction.z);
+        shader.set_vec3(
+            "spotLightPos",
+            self.position.x,
+            self.position.y,
+            self.position.z,
+        );
+        shader.set_vec3(
+            "spotLightDir",
+            self.direction.x,
+            self.direction.y,
+            self.direction.z,
+        );
         self.properties.apply_to_shader(shader, "spot");
         self.cone.apply_to_shader(shader, "spot");
         shader.set_vec3("viewPos", view_pos.x, view_pos.y, view_pos.z);

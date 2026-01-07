@@ -1,18 +1,9 @@
 //! Asset Paths - Centralized static paths for all game assets
-//!
-//! This module provides a single source of truth for all asset paths,
-//! making it easy to modify paths without searching through the codebase.
 
-// ============================
-// Base Directories
-// ============================
 pub const SHADERS_DIR: &str = "assets/shaders";
 pub const TEXTURES_DIR: &str = "assets/resources/textures";
 pub const MODELS_DIR: &str = "assets/resources/models";
 
-// ============================
-// Shader Paths
-// ============================
 pub mod shaders {
     // Lit shaders (with lighting)
     pub const LIT_VERT: &str = concat!("assets/shaders", "/lit.vert");
@@ -38,9 +29,6 @@ pub mod shaders {
     pub const POINT_SHADOW_FRAG: &str = concat!("assets/shaders", "/point_shadow_depth.frag");
 }
 
-// ============================
-// Texture Paths
-// ============================
 pub mod textures {
     pub const GRASS: &str =
         "assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg";
@@ -48,18 +36,12 @@ pub mod textures {
     pub const SKYBOX: &str = "assets/resources/textures/Cubemap_Sky_22-512x512.png";
 }
 
-// ============================
-// Model Paths
-// ============================
 pub mod models {
     pub const TREE: &str = "assets/resources/models/Tree2/trees9.obj";
     pub const XWING: &str = "assets/resources/models/xwing/x-wing.obj";
     pub const STATUE: &str = "assets/resources/models/Statue/12334_statue_v1_l3.obj";
 }
 
-// ============================
-// Asset Names (for caching)
-// ============================
 pub mod names {
     // Shaders
     pub const SHADER_COLORED: &str = "colored";

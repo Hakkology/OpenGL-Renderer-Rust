@@ -1,7 +1,6 @@
-#![allow(dead_code)]
 extern crate gl;
-use glam::Vec3;
 use crate::shaders::Shader;
+use glam::Vec3;
 
 /// Common lighting components that can be reused across light types
 #[derive(Clone, Copy, Debug)]
@@ -43,11 +42,31 @@ impl LightProperties {
 
     /// Apply common lighting uniforms to shader
     pub fn apply_to_shader(&self, shader: &Shader, prefix: &str) {
-        let ambient_name = if prefix.is_empty() { "ambientStrength".to_string() } else { format!("{}Ambient", prefix) };
-        let diffuse_name = if prefix.is_empty() { "diffuseStrength".to_string() } else { format!("{}Diffuse", prefix) };
-        let specular_name = if prefix.is_empty() { "specularStrength".to_string() } else { format!("{}Specular", prefix) };
-        let shininess_name = if prefix.is_empty() { "shininess".to_string() } else { format!("{}Shininess", prefix) };
-        let color_name = if prefix.is_empty() { "lightColor".to_string() } else { format!("{}Color", prefix) };
+        let ambient_name = if prefix.is_empty() {
+            "ambientStrength".to_string()
+        } else {
+            format!("{}Ambient", prefix)
+        };
+        let diffuse_name = if prefix.is_empty() {
+            "diffuseStrength".to_string()
+        } else {
+            format!("{}Diffuse", prefix)
+        };
+        let specular_name = if prefix.is_empty() {
+            "specularStrength".to_string()
+        } else {
+            format!("{}Specular", prefix)
+        };
+        let shininess_name = if prefix.is_empty() {
+            "shininess".to_string()
+        } else {
+            format!("{}Shininess", prefix)
+        };
+        let color_name = if prefix.is_empty() {
+            "lightColor".to_string()
+        } else {
+            format!("{}Color", prefix)
+        };
 
         shader.set_float(&ambient_name, self.ambient);
         shader.set_float(&diffuse_name, self.diffuse);
@@ -77,7 +96,11 @@ impl Default for Attenuation {
 
 impl Attenuation {
     pub fn new(constant: f32, linear: f32, quadratic: f32) -> Self {
-        Self { constant, linear, quadratic }
+        Self {
+            constant,
+            linear,
+            quadratic,
+        }
     }
 
     pub fn apply_to_shader(&self, shader: &Shader, prefix: &str) {
@@ -89,7 +112,6 @@ impl Attenuation {
 
 /// Cone shape for spotlights
 #[derive(Clone, Copy, Debug)]
-#[allow(dead_code)]
 pub struct SpotCone {
     pub cut_off: f32,
     pub outer_cut_off: f32,

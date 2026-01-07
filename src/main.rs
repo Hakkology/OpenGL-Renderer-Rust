@@ -27,14 +27,14 @@ use game::Game;
 use window::GlWindow;
 
 fn main() {
-    // 1. Pencereyi ve OpenGL context'ini oluştur
+    // Create window and OpenGL context
     let mut window = GlWindow::new(win_cfg::TITLE, win_cfg::WIDTH, win_cfg::HEIGHT);
     window.init_gl();
 
-    // 2. Modu oluştur (Context hazır olduğu için shader/buffer yükleyebilir)
+    // Init game state (OpenGL context is ready)
     let mode = Box::new(Game::new());
 
-    // 3. Uygulamayı başlat
+    // Start application
     let mut app = Application::new(window, mode);
     app.run();
 }

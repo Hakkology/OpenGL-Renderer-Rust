@@ -19,7 +19,7 @@ impl UIManager {
     }
 
     pub fn render(&self, scene: &Scene, selected_object_id: Option<usize>) {
-        // 1. Inspector
+        // Inspector
         if let Some(id) = selected_object_id {
             if let Some(obj) = scene.objects.iter().find(|o| o.id == id) {
                 self.inspector.draw(

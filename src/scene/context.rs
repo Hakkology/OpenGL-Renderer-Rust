@@ -21,7 +21,7 @@ impl<'a> RenderContext<'a> {
         for (i, pl) in self.point_lights.iter().enumerate() {
             if i >= 4 {
                 break;
-            } // NR_POINT_LIGHTS = 4
+            }
             pl.apply_to_shader_indexed(shader, i, self.view_pos);
         }
 
@@ -32,7 +32,6 @@ impl<'a> RenderContext<'a> {
         self.shadow_map.bind_shadow_map(5);
         shader.set_int("shadowMap", 5);
 
-        // Bind Point Shadow Maps starting from unit 6
         for (i, psm) in self.point_shadow_maps.iter().enumerate() {
             if i >= 4 {
                 break;
@@ -41,8 +40,6 @@ impl<'a> RenderContext<'a> {
             shader.set_int(&format!("pointShadowMaps[{}]", i), (6 + i) as i32);
         }
         shader.set_float("farPlane", self.far_plane);
-
-        // Ensure viewPos is set for specular calculations
         shader.set_vec3("viewPos", self.view_pos.x, self.view_pos.y, self.view_pos.z);
     }
 }

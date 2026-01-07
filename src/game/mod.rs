@@ -428,7 +428,7 @@ impl RenderMode for Game {
                 }
             }
 
-            // 3. Scene Selection (Raycast)
+            // Scene Selection (Raycast)
             let ray = self.camera.screen_point_to_ray(
                 mx,
                 my,

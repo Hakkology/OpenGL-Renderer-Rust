@@ -10,8 +10,8 @@ pub struct GlWindow {
     pub events: GlfwReceiver<(f64, WindowEvent)>,
 }
 
+/// New GLWindow
 impl GlWindow {
-    // Yeni bir GlWindow oluşturur
     pub fn new(title: &str, width: u32, height: u32) -> GlWindow {
         let mut glfw = glfw::init(fail_on_errors!()).unwrap_or_else(|e| {
             panic!("Failed to initialize GLFW: {:?}", e);
@@ -46,7 +46,7 @@ impl GlWindow {
         }
     }
 
-    // OpenGL'i başlatır
+    // Initialize OpenGL
     pub fn init_gl(&mut self) {
         gl::load_with(|symbol| self.window.get_proc_address(symbol) as *const _);
 
@@ -65,7 +65,7 @@ impl GlWindow {
         }
     }
 
-    // Ekranı temizler
+    // Clear screen
     pub fn clear(&self, r: f32, g: f32, b: f32, a: f32) {
         unsafe {
             gl::ClearColor(r, g, b, a);
@@ -73,7 +73,7 @@ impl GlWindow {
         }
     }
 
-    // Pencere olaylarını işler
+    // Handle window events
     pub fn handle_event(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::Key(Key::Escape, _, Action::Press, _) => {

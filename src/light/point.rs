@@ -45,7 +45,7 @@ impl PointLight {
             self.position.y,
             self.position.z,
         );
-        // Properties uses "{prefix}Ambient", so passing "{prefix}." gives "pointLights[i].Ambient"
+
         let prop_prefix = format!("{}.", prefix);
         self.properties.apply_to_shader(shader, &prop_prefix);
         self.attenuation.apply_to_shader(shader, &prop_prefix);

@@ -21,14 +21,11 @@ impl Plane {
 
     fn init(&mut self) {
         let half = self.size / 2.0;
-        
-        // Plane vertices: Position[3], TexCoord[2], Normal[3]
+
         let vertices: [f32; 32] = [
             // positions          // tex coords   // normals
-            -half, 0.0, -half,   0.0, 1.0,       0.0, 1.0, 0.0,
-             half, 0.0, -half,   1.0, 1.0,       0.0, 1.0, 0.0,
-            -half, 0.0,  half,   0.0, 0.0,       0.0, 1.0, 0.0,
-             half, 0.0,  half,   1.0, 0.0,       0.0, 1.0, 0.0,
+            -half, 0.0, -half, 0.0, 1.0, 0.0, 1.0, 0.0, half, 0.0, -half, 1.0, 1.0, 0.0, 1.0, 0.0,
+            -half, 0.0, half, 0.0, 0.0, 0.0, 1.0, 0.0, half, 0.0, half, 1.0, 0.0, 0.0, 1.0, 0.0,
         ];
 
         unsafe {
@@ -46,17 +43,31 @@ impl Plane {
             );
 
             let stride = (8 * std::mem::size_of::<GLfloat>()) as i32;
-            
+
             // Position (0)
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null());
             gl::EnableVertexAttribArray(0);
 
             // TexCoord (2)
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride, (3 * std::mem::size_of::<GLfloat>()) as *const _);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (3 * std::mem::size_of::<GLfloat>()) as *const _,
+            );
             gl::EnableVertexAttribArray(2);
-             
+
             // Normal (1)
-            gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, stride, (5 * std::mem::size_of::<GLfloat>()) as *const _);
+            gl::VertexAttribPointer(
+                1,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                stride,
+                (5 * std::mem::size_of::<GLfloat>()) as *const _,
+            );
             gl::EnableVertexAttribArray(1);
 
             gl::BindVertexArray(0);

@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Mul, Sub};
 
+/// Vector3 implementation
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(dead_code)]
 pub struct Vector3D {
     pub x: f32,
     pub y: f32,
@@ -10,9 +10,21 @@ pub struct Vector3D {
 }
 
 impl Vector3D {
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
-    pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0 };
-    pub const UP: Self = Self { x: 0.0, y: 1.0, z: 0.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+    };
+    pub const UP: Self = Self {
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    };
 
     #[allow(dead_code)]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
@@ -32,6 +44,7 @@ impl Vector3D {
     }
 }
 
+/// Vector3 Sum
 impl Add for Vector3D {
     type Output = Self;
     fn add(self, other: Self) -> Self {
@@ -39,6 +52,7 @@ impl Add for Vector3D {
     }
 }
 
+/// Vector3 Subtraction
 impl Sub for Vector3D {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
@@ -46,6 +60,7 @@ impl Sub for Vector3D {
     }
 }
 
+/// Vector3 Multiplication
 impl Mul<f32> for Vector3D {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self {

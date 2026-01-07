@@ -3,10 +3,9 @@ pub mod directional;
 pub mod point;
 pub mod spotlight;
 
-use glam::Vec3;
 use crate::shaders::Shader;
+use glam::Vec3;
 
-// Re-export light types
 pub use directional::DirectionalLight;
 pub use point::PointLight;
 

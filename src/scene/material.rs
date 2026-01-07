@@ -1,12 +1,16 @@
-use std::rc::Rc;
-use glam::{Vec2, Vec3};
 use crate::shaders::{Shader, Texture};
+use glam::{Vec2, Vec3};
+use std::rc::Rc;
 
 pub trait Material {
     fn shader(&self) -> &Rc<Shader>;
     fn apply(&self);
-    fn is_lit(&self) -> bool { true }
-    fn receive_shadows(&self) -> bool { true }
+    fn is_lit(&self) -> bool {
+        true
+    }
+    fn receive_shadows(&self) -> bool {
+        true
+    }
 }
 
 pub struct ColoredMaterial {
@@ -29,11 +33,16 @@ impl Material for ColoredMaterial {
 
     fn apply(&self) {
         self.shader.use_program();
-        self.shader.set_vec3("objectColor", self.color.x, self.color.y, self.color.z);
+        self.shader
+            .set_vec3("objectColor", self.color.x, self.color.y, self.color.z);
     }
-    
-    fn is_lit(&self) -> bool { self.is_lit }
-    fn receive_shadows(&self) -> bool { self.receive_shadows }
+
+    fn is_lit(&self) -> bool {
+        self.is_lit
+    }
+    fn receive_shadows(&self) -> bool {
+        self.receive_shadows
+    }
 }
 
 pub struct TexturedMaterial {
@@ -41,7 +50,7 @@ pub struct TexturedMaterial {
     pub texture: Rc<Texture>,
     pub is_lit: bool,
     pub is_repeated: bool,
-    pub uv_scale: Vec2, // Renamed from texture_scale for clarity
+    pub uv_scale: Vec2,
     pub receive_shadows: bool,
 }
 
@@ -55,10 +64,16 @@ impl Material for TexturedMaterial {
         self.texture.bind(0);
         self.shader.set_int("u_Texture", 0);
         // Send repeat flag and scale
-        self.shader.set_int("u_IsRepeated", if self.is_repeated { 1 } else { 0 });
-        self.shader.set_vec2("u_UVScale", self.uv_scale.x, self.uv_scale.y); // Manual UV scaling
+        self.shader
+            .set_int("u_IsRepeated", if self.is_repeated { 1 } else { 0 });
+        self.shader
+            .set_vec2("u_UVScale", self.uv_scale.x, self.uv_scale.y); // Manual UV scaling
     }
-    
-    fn is_lit(&self) -> bool { self.is_lit }
-    fn receive_shadows(&self) -> bool { self.receive_shadows }
+
+    fn is_lit(&self) -> bool {
+        self.is_lit
+    }
+    fn receive_shadows(&self) -> bool {
+        self.receive_shadows
+    }
 }

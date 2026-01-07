@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 extern crate gl;
 
-use std::rc::Rc;
-use std::ptr;
+use gl::types::{GLfloat, GLuint};
 use std::f32::consts::PI;
-use gl::types::{GLuint, GLfloat};
+use std::ptr;
+use std::rc::Rc;
 
-use crate::shaders::Shader;
-use crate::math::Vector2D;
 use super::Shape;
+use crate::math::Vector2D;
+use crate::shaders::Shader;
 
 #[allow(dead_code)]
 pub struct Circle {
@@ -38,11 +38,15 @@ impl Circle {
 impl Shape for Circle {
     fn init(&mut self) {
         let mut vertices: Vec<GLfloat> = Vec::new();
-        
+
         // Center vertex
         vertices.extend_from_slice(&[
-            self.center.x, self.center.y, 0.0,
-            0.0, 0.0, 1.0 // Normal
+            self.center.x,
+            self.center.y,
+            0.0,
+            0.0,
+            0.0,
+            1.0, // Normal
         ]);
 
         for i in 0..=self.segments {
@@ -50,10 +54,7 @@ impl Shape for Circle {
             let x = self.center.x + self.radius * theta.cos();
             let y = self.center.y + self.radius * theta.sin();
 
-            vertices.extend_from_slice(&[
-                x, y, 0.0,
-                0.0, 0.0, 1.0
-            ]);
+            vertices.extend_from_slice(&[x, y, 0.0, 0.0, 0.0, 1.0]);
         }
 
         unsafe {
@@ -71,11 +72,25 @@ impl Shape for Circle {
             );
 
             // Position
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 6 * std::mem::size_of::<GLfloat>() as i32, ptr::null());
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                6 * std::mem::size_of::<GLfloat>() as i32,
+                ptr::null(),
+            );
             gl::EnableVertexAttribArray(0);
 
             // Normal/Color
-            gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 6 * std::mem::size_of::<GLfloat>() as i32, (3 * std::mem::size_of::<GLfloat>()) as *const _);
+            gl::VertexAttribPointer(
+                1,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                6 * std::mem::size_of::<GLfloat>() as i32,
+                (3 * std::mem::size_of::<GLfloat>()) as *const _,
+            );
             gl::EnableVertexAttribArray(1);
 
             gl::BindVertexArray(0);
@@ -86,8 +101,6 @@ impl Shape for Circle {
         unsafe {
             self.shader.use_program();
             gl::BindVertexArray(self.vao);
-            // segments + 1 points around + 1 center = segments + 2 vertices
-            // DrawArrays count is number of vertices.
             gl::DrawArrays(gl::TRIANGLE_FAN, 0, (self.segments + 2) as i32);
             gl::BindVertexArray(0);
         }

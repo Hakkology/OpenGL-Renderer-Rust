@@ -1,6 +1,4 @@
 //! Material Factory - Centralized material creation
-//!
-//! Provides convenient methods for creating materials with common presets.
 
 use super::material::{ColoredMaterial, Material, TexturedMaterial};
 use crate::shaders::{Shader, Texture};
@@ -21,10 +19,6 @@ impl MaterialFactory {
             textured_shader,
         }
     }
-
-    // ============================
-    // Colored Material Presets
-    // ============================
 
     /// Create a basic colored material with default lighting
     pub fn colored(&self, color: Vec3) -> Rc<dyn Material> {
@@ -55,10 +49,6 @@ impl MaterialFactory {
             receive_shadows: false,
         })
     }
-
-    // ============================
-    // Textured Material Presets
-    // ============================
 
     /// Create a basic textured material with default settings
     pub fn textured(&self, texture: Rc<Texture>) -> Rc<dyn Material> {
@@ -95,10 +85,6 @@ impl MaterialFactory {
             receive_shadows: false,
         })
     }
-
-    // ============================
-    // Common Color Presets
-    // ============================
 
     pub fn red(&self) -> Rc<dyn Material> {
         self.colored(Vec3::new(1.0, 0.0, 0.0))

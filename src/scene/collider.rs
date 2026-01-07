@@ -1,12 +1,12 @@
-use glam::Vec3;
 use crate::math::ray::Ray;
 use crate::scene::transform::Transform;
+use glam::Vec3;
 
 #[derive(Debug, Clone)]
 pub enum ColliderShape {
     Sphere { radius: f32 },
     Box { min: Vec3, max: Vec3 },
-    // We could add Capsule later, or approximate with Box for now
+    // Add Capsule later
 }
 
 #[derive(Debug, Clone)]
@@ -47,11 +47,8 @@ impl Collider {
         let inverse_model = model_matrix.inverse();
 
         let local_origin = inverse_model.transform_point3(ray.origin);
-        // We do NOT normalize the direction to preserve the 't' parameter across spaces.
-        // This assumes uniform scale or handles non-uniform scale correctly for axis-aligned checks in local space.
         let local_direction = inverse_model.transform_vector3(ray.direction);
 
-        // Construct raw ray to avoid normalization in Ray::new
         let local_ray = Ray {
             origin: local_origin,
             direction: local_direction,

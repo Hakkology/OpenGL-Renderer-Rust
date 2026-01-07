@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(dead_code)]
@@ -8,23 +8,20 @@ pub struct Vector2D {
     pub y: f32,
 }
 
+/// For vector2 ops
 impl Vector2D {
-    // Yeni bir 2D vektör oluşturur
     pub fn new(x: f32, y: f32) -> Self {
         Vector2D { x, y }
     }
 
-    // Sıfır vektörü oluşturur
     pub fn zero() -> Self {
         Vector2D { x: 0.0, y: 0.0 }
     }
 
-    // Vektörün büyüklüğünü hesaplar
     pub fn magnitude(&self) -> f32 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    // Vektörü normalleştirir
     pub fn normalize(&self) -> Self {
         let mag = self.magnitude();
         if mag != 0.0 {
@@ -37,13 +34,12 @@ impl Vector2D {
         }
     }
 
-    // İki vektörün nokta çarpımını hesaplar
     pub fn dot(&self, other: &Vector2D) -> f32 {
         self.x * other.x + self.y * other.y
     }
 }
 
-// Vektör toplama işlemi
+/// Sum
 impl Add for Vector2D {
     type Output = Self;
 
@@ -55,7 +51,7 @@ impl Add for Vector2D {
     }
 }
 
-// Vektör çıkarma işlemi
+/// Subtraction
 impl Sub for Vector2D {
     type Output = Self;
 
@@ -67,7 +63,7 @@ impl Sub for Vector2D {
     }
 }
 
-// Vektörü skaler ile çarpma işlemi
+/// Multiplication
 impl Mul<f32> for Vector2D {
     type Output = Self;
 
@@ -79,7 +75,7 @@ impl Mul<f32> for Vector2D {
     }
 }
 
-// Vektörü skaler ile bölme işlemi
+/// Division
 impl Div<f32> for Vector2D {
     type Output = Self;
 
@@ -90,7 +86,7 @@ impl Div<f32> for Vector2D {
                 y: self.y / scalar,
             }
         } else {
-            panic!("Sıfıra bölme hatası")
+            panic!("Division by zero")
         }
     }
 }

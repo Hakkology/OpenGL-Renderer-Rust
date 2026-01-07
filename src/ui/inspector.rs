@@ -21,27 +21,11 @@ impl Inspector {
         let spacing = 5.0;
         let row_h = 40.0;
 
-        // Dock to Top-Right (approximation for 1280x720)
-        // We want the panel top at Y=700 (screen top is 720)
-        // Panel Height ~ 160.
-        // So Y (bottom) = 700 - 160 = 540.
         let _start_y = y; // This will be bottom of panel
-
-        // Rows from top to bottom relative to start_y (which is bottom of panel)
-        // Actually, let's treat x,y as Top-Left of the panel for internal logic?
-        // No, render_rect uses x,y as bottom-left.
-        // Let's assume passed (x,y) is the Bottom-Left of the panel.
-
-        // Row 1 (Top): Header (Name)
-        // Row 2: X
-        // Row 3: Y
-        // Row 4: Z
-
-        // Offsets from bottom (y)
+                          // Offsets from bottom (y)
         let row3_y = y + 10.0; // Z
         let row2_y = row3_y + row_h; // Y
         let row1_y = row2_y + row_h; // X
-                                     // Header uses space above row1
 
         let label_w = 110.0; // Space for "X: -0.0"
 

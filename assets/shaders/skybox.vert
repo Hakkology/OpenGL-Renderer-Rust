@@ -7,7 +7,7 @@ uniform mat4 projection;
 uniform mat4 view;
 
 void main() {
-    TexCoords = aPos;
+    TexCoords = aPos; // Position is also texture coordinate for cubemap
     vec4 pos = projection * view * vec4(aPos, 1.0);
-    gl_Position = pos.xyww;
+    gl_Position = pos.xyww; // Ensure rendered at max depth (z=w)
 }

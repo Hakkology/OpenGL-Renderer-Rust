@@ -6,7 +6,7 @@ in vec3 FragPos;
 in vec2 TexCoord;
 in vec4 FragPosLightSpace;
 
-// Directional Light
+// Directional Light Properties
 uniform vec3 lightDir;
 uniform vec3 lightColor;
 uniform float ambientStrength;
@@ -14,7 +14,7 @@ uniform float diffuseStrength;
 uniform float specularStrength;
 uniform float shininess;
 
-// Point Lights
+// Point Light Structure
 struct PointLight {
     vec3 position;
     vec3 Color;
@@ -32,19 +32,19 @@ uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform vec3 viewPos;
 uniform sampler2D u_Texture;
 
-// Shadow
+// Shadow Maps
 uniform sampler2D shadowMap;
 uniform samplerCube pointShadowMaps[NR_POINT_LIGHTS];
 uniform float farPlane;
 
+// Calculate Point Shadow (with PCF)
 float calcPointShadow(vec3 fragPos, vec3 lightPos, samplerCube shadowMap, float lightRange) {
     vec3 fragToLight = fragPos - lightPos;
     float currentDepth = length(fragToLight);
     
-    // Optimization: Skip shadow if fragment is outside light's influence
+    // Skip if out of range
     if (currentDepth > lightRange) return 0.0;
 
-    // PCF for Point Shadows (Reduced samples for performance)
     float shadow = 0.0;
     float bias = 0.15; 
     int samples = 8;
@@ -64,23 +64,21 @@ float calcPointShadow(vec3 fragPos, vec3 lightPos, samplerCube shadowMap, float 
             shadow += 1.0;
         }
     }
-    shadow /= float(samples);
     
-    return shadow;
+    return shadow / float(samples);
 }
 
+// Calculate Directional Shadow
 float calcShadow(vec4 fragPosLightSpace, vec3 normal, vec3 lightDirNorm) {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
     
-    if(projCoords.z > 1.0)
-        return 0.0;
+    if(projCoords.z > 1.0) return 0.0;
     
-    float closestDepth = texture(shadowMap, projCoords.xy).r;
     float currentDepth = projCoords.z;
     float bias = max(0.05 * (1.0 - dot(normal, lightDirNorm)), 0.005);
     
-    // PCF - Reduced to 3x3 for performance
+    // PCF (3x3 sampling)
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     for(int x = -1; x <= 1; ++x) {
@@ -89,11 +87,11 @@ float calcShadow(vec4 fragPosLightSpace, vec3 normal, vec3 lightDirNorm) {
             shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
         }
     }
-    shadow /= 9.0;
     
-    return shadow;
+    return shadow / 9.0;
 }
 
+// Directional Light Calculation
 vec3 calcDirLight(vec3 norm, vec3 viewDir, float shadow) {
     vec3 lightDirNorm = normalize(-lightDir);
     float diff = max(dot(norm, lightDirNorm), 0.0);
@@ -107,6 +105,7 @@ vec3 calcDirLight(vec3 norm, vec3 viewDir, float shadow) {
     return ambient + (1.0 - shadow) * (diffuse + specular);
 }
 
+// Point Light Calculation
 vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir, float shadow) {
     vec3 lightDirNorm = normalize(light.position - FragPos);
     float diff = max(dot(norm, lightDirNorm), 0.0);
@@ -122,7 +121,6 @@ vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir, float shadow) {
     return ambient + (1.0 - shadow) * (diffuse + specular);
 }
 
-// Toggles
 uniform int u_UseLighting;
 uniform int u_UseShadows;
 
@@ -140,23 +138,21 @@ void main() {
     vec3 result;
 
     if (u_UseLighting == 0) {
-        result = vec3(1.0); // Unlit logic: just pure white multiplier (returns texture color)
+        result = vec3(1.0);
     } else {
         vec3 norm = normalize(Normal);
         vec3 viewDir = normalize(viewPos - FragPos);
         
-        // Two-sided lighting: Ensure normal always faces the camera
+        // Two-sided lighting: Ensure normal faces camera
         if (dot(norm, viewDir) < 0.0) {
             norm = -norm;
         }
         vec3 lightDirNorm = normalize(-lightDir);
         
-        // Calculate if surface faces the light (optimization)
+        // Calculate shadow only if facing light
         float NdotL = dot(norm, lightDirNorm);
-        
         float shadow = 0.0;
         if (u_UseShadows != 0 && NdotL > 0.0) {
-            // Only calculate shadow if surface faces the light
             shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
         }
 
@@ -165,10 +161,8 @@ void main() {
         for(int i = 0; i < NR_POINT_LIGHTS; i++) {
             float pShadow = 0.0;
             if (u_UseShadows != 0) {
-                // Check if surface faces this point light
                 vec3 lightToFrag = normalize(FragPos - pointLights[i].position);
-                float pNdotL = dot(norm, -lightToFrag);
-                if (pNdotL > 0.0) {
+                if (dot(norm, -lightToFrag) > 0.0) {
                     pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i], 15.0);
                 }
             }
@@ -177,6 +171,5 @@ void main() {
     }
     
     result *= texColor.rgb;
-
     FragColor = vec4(result, texColor.a);
 }

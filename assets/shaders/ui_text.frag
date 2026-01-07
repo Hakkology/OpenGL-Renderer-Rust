@@ -6,6 +6,7 @@ uniform sampler2D u_Texture;
 uniform vec3 u_Color;
 
 void main() {
+    // Sadece alpha kanalı örneklenir (FreeType bitmap)
     float sampled = texture(u_Texture, TexCoord).r;
     FragColor = vec4(u_Color, sampled);
 }

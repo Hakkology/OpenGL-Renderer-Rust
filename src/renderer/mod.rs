@@ -45,11 +45,11 @@ impl Renderer {
         light: &DirectionalLight,
         point_lights: &[PointLight],
     ) {
-        // 1. Shadow Passes
+        // Shadow Passes
         self.render_shadow_pass(scene, light);
         self.render_point_shadow_pass(scene, point_lights);
 
-        // 2. Main Render Setup
+        // Main Render Setup
         let aspect = win_cfg::WIDTH as f32 / win_cfg::HEIGHT as f32;
         let projection = camera.projection_matrix(aspect);
         let view = camera.view_matrix();
@@ -58,10 +58,10 @@ impl Renderer {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
-        // 3. Render Skybox
+        // Render Skybox
         self.render_skybox(&projection, &view);
 
-        // 4. Render Scene Objects
+        // Render Scene Objects
         let context = RenderContext {
             projection,
             view,

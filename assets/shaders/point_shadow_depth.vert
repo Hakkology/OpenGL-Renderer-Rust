@@ -5,5 +5,6 @@ uniform mat4 model;
 
 void main()
 {
+    // Only model transform (View/Proj in Geometry Shader)
     gl_Position = model * vec4(aPos, 1.0);
 }

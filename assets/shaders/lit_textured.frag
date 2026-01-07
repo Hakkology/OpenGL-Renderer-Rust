@@ -37,15 +37,34 @@ uniform sampler2D shadowMap;
 uniform samplerCube pointShadowMaps[NR_POINT_LIGHTS];
 uniform float farPlane;
 
-float calcPointShadow(vec3 fragPos, vec3 lightPos, samplerCube shadowMap) {
+float calcPointShadow(vec3 fragPos, vec3 lightPos, samplerCube shadowMap, float lightRange) {
     vec3 fragToLight = fragPos - lightPos;
-    float closestDepth = texture(shadowMap, fragToLight).r;
-    closestDepth *= farPlane;
     float currentDepth = length(fragToLight);
     
-    // Bias
-    float bias = 0.05;
-    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    // Optimization: Skip shadow if fragment is outside light's influence
+    if (currentDepth > lightRange) return 0.0;
+
+    // PCF for Point Shadows (Reduced samples for performance)
+    float shadow = 0.0;
+    float bias = 0.15; 
+    int samples = 8;
+    vec3 sampleOffsetDirections[8] = vec3[]
+    (
+       vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+       vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1)
+    );
+    
+    float viewDistance = length(viewPos - fragPos);
+    float diskRadius = (1.0 + (viewDistance / farPlane)) / 50.0;
+    
+    for(int i = 0; i < samples; ++i) {
+        float closestDepth = texture(shadowMap, fragToLight + sampleOffsetDirections[i] * diskRadius).r;
+        closestDepth *= farPlane;
+        if(currentDepth - bias > closestDepth) {
+            shadow += 1.0;
+        }
+    }
+    shadow /= float(samples);
     
     return shadow;
 }
@@ -61,16 +80,16 @@ float calcShadow(vec4 fragPosLightSpace, vec3 normal, vec3 lightDirNorm) {
     float currentDepth = projCoords.z;
     float bias = max(0.05 * (1.0 - dot(normal, lightDirNorm)), 0.005);
     
-    // PCF
+    // PCF - Reduced to 3x3 for performance
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for(int x = -2; x <= 2; ++x) {
-        for(int y = -2; y <= 2; ++y) {
+    for(int x = -1; x <= 1; ++x) {
+        for(int y = -1; y <= 1; ++y) {
             float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
             shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
         }
     }
-    shadow /= 25.0;
+    shadow /= 9.0;
     
     return shadow;
 }
@@ -137,7 +156,8 @@ void main() {
         for(int i = 0; i < NR_POINT_LIGHTS; i++) {
             float pShadow = 0.0;
             if (u_UseShadows != 0) {
-                pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i]);
+                // High Optimization: Skip if beyond hard range, and use very few samples
+                pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i], 15.0);
             }
             result += calcPointLight(pointLights[i], norm, viewDir, pShadow);
         }

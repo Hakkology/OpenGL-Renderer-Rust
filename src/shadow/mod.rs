@@ -239,6 +239,8 @@ impl PointShadowMap {
             gl::Viewport(0, 0, self.resolution as i32, self.resolution as i32);
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
             gl::Clear(gl::DEPTH_BUFFER_BIT);
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::FRONT); // Render back faces to prevent acne
         }
 
         self.shader.use_program();
@@ -255,6 +257,8 @@ impl PointShadowMap {
 
     pub fn end_pass(&self, screen_width: u32, screen_height: u32) {
         unsafe {
+            gl::Disable(gl::CULL_FACE);
+            gl::CullFace(gl::BACK);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             gl::Viewport(0, 0, screen_width as i32, screen_height as i32);
         }

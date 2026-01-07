@@ -26,16 +26,16 @@ pub trait RenderMode {
 }
 pub struct Game {
     // Scene Objects
-    center_cube: SceneObject3D<Rc<Cube>>,
-    green_cube: SceneObject3D<Rc<Cube>>,
-    red_cube: SceneObject3D<Rc<Cube>>,
-    orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
-    capsules: Vec<SceneObject3D<Rc<Capsule>>>,
-    floor: SceneObject3D<Rc<Plane>>,
-    walls: Vec<SceneObject3D<Rc<Cube>>>,
-    trees: Vec<SceneObject3D<Rc<Model>>>,
-    xwing: SceneObject3D<Rc<Model>>,
-    statues: Vec<SceneObject3D<Rc<Model>>>,
+    center_cube: SceneObject3D,
+    green_cube: SceneObject3D,
+    red_cube: SceneObject3D,
+    orbiting_spheres: Vec<SceneObject3D>,
+    capsules: Vec<SceneObject3D>,
+    floor: SceneObject3D,
+    walls: Vec<SceneObject3D>,
+    trees: Vec<SceneObject3D>,
+    xwing: SceneObject3D,
+    statues: Vec<SceneObject3D>,
 
     skybox: Skybox,
 
@@ -178,20 +178,20 @@ impl Game {
         });
 
         // Create Scene Objects
-        let center_cube = SceneObject3D::new(cube_mesh.clone(), grass_material.clone())
+        let center_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), grass_material.clone())
             .with_name("Center Cube")
             .with_collider(Collider::new_cube(1.0));
-        let green_cube = SceneObject3D::new(cube_mesh.clone(), green_material.clone())
+        let green_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), green_material.clone())
             .with_name("Green Cube")
             .with_collider(Collider::new_cube(1.0));
-        let red_cube = SceneObject3D::new(cube_mesh.clone(), red_material.clone())
+        let red_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), red_material.clone())
             .with_name("Red Cube")
             .with_collider(Collider::new_cube(1.0));
 
         let mut orbiting_spheres = Vec::new();
         for i in 0..2 {
             orbiting_spheres.push(
-                SceneObject3D::new(sphere_mesh.clone(), stone_material.clone())
+                SceneObject3D::new(Box::new(sphere_mesh.clone()), stone_material.clone())
                     .with_name(&format!("Orbiting Sphere {}", i))
                     .with_collider(Collider::new_sphere(0.6)),
             );
@@ -200,7 +200,7 @@ impl Game {
         let mut capsules = Vec::new();
         for i in 0..2 {
             capsules.push(
-                SceneObject3D::new(capsule_mesh.clone(), grass_material.clone())
+                SceneObject3D::new(Box::new(capsule_mesh.clone()), grass_material.clone())
                     .with_name(&format!("Floating Capsule {}", i))
                     .with_collider(Collider::new_box(
                         Vec3::new(-0.4, -1.0, -0.4),
@@ -209,7 +209,7 @@ impl Game {
             );
         }
 
-        let mut floor = SceneObject3D::new(plane_mesh, grass_material.clone())
+        let mut floor = SceneObject3D::new(Box::new(plane_mesh), grass_material.clone())
             .with_name("Floor")
             .with_collider(Collider::new_box(
                 Vec3::new(-40.0, -0.01, -40.0),
@@ -243,7 +243,7 @@ impl Game {
         });
 
         // +X Wall (Inner face normal is -X)
-        let mut w1 = SceneObject3D::new(cube_mesh.clone(), wall_mat_x.clone())
+        let mut w1 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall +X")
             .with_collider(Collider::new_cube(1.0));
         w1.transform.position = Vec3::new(half_size, -4.0 + wall_height / 2.0, 0.0);
@@ -251,7 +251,7 @@ impl Game {
         walls.push(w1);
 
         // -X Wall (Inner face normal is +X)
-        let mut w2 = SceneObject3D::new(cube_mesh.clone(), wall_mat_x.clone())
+        let mut w2 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall -X")
             .with_collider(Collider::new_cube(1.0));
         w2.transform.position = Vec3::new(-half_size, -4.0 + wall_height / 2.0, 0.0);
@@ -259,7 +259,7 @@ impl Game {
         walls.push(w2);
 
         // +Z Wall (Inner face normal is -Z)
-        let mut w3 = SceneObject3D::new(cube_mesh.clone(), wall_mat_z.clone())
+        let mut w3 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall +Z")
             .with_collider(Collider::new_cube(1.0));
         w3.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, half_size);
@@ -267,7 +267,7 @@ impl Game {
         walls.push(w3);
 
         // -Z Wall (Inner face normal is +Z)
-        let mut w4 = SceneObject3D::new(cube_mesh.clone(), wall_mat_z.clone())
+        let mut w4 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall -Z")
             .with_collider(Collider::new_cube(1.0));
         w4.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, -half_size);
@@ -285,12 +285,13 @@ impl Game {
         let tree_positions = [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)];
 
         for (i, pos) in tree_positions.iter().enumerate() {
-            let mut tree = SceneObject3D::new(tree2_model.clone(), green_material.clone())
-                .with_name(&format!("Tree {}", i))
-                .with_collider(Collider::new_box(
-                    Vec3::new(-0.5, 0.0, -0.5),
-                    Vec3::new(0.5, 3.0, 0.5),
-                ));
+            let mut tree =
+                SceneObject3D::new(Box::new(tree2_model.clone()), green_material.clone())
+                    .with_name(&format!("Tree {}", i))
+                    .with_collider(Collider::new_box(
+                        Vec3::new(-0.5, 0.0, -0.5),
+                        Vec3::new(0.5, 3.0, 0.5),
+                    ));
 
             tree.transform.position = *pos;
             tree.transform.scale = Vec3::splat(0.8); // Slightly smaller scale for consistency
@@ -310,7 +311,7 @@ impl Game {
             receive_shadows: true,
         });
 
-        let mut xwing = SceneObject3D::new(xwing_model.clone(), grey_material.clone())
+        let mut xwing = SceneObject3D::new(Box::new(xwing_model.clone()), grey_material.clone())
             .with_name("X-Wing")
             .with_collider(Collider::new_sphere(2.0));
         xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
@@ -331,7 +332,7 @@ impl Game {
         ];
 
         for (i, (pos, yaw_deg)) in statue_configs.iter().enumerate() {
-            let mut s = SceneObject3D::new(statue_model.clone(), grey_material.clone())
+            let mut s = SceneObject3D::new(Box::new(statue_model.clone()), grey_material.clone())
                 .with_name(&format!("Statue {}", i))
                 .with_collider(Collider::new_sphere(500.0));
             s.transform.position = *pos;
@@ -392,6 +393,58 @@ impl Game {
         }
     }
 
+    fn each_object<F>(&self, mut f: F)
+    where
+        F: FnMut(&SceneObject3D),
+    {
+        f(&self.center_cube);
+        f(&self.green_cube);
+        f(&self.red_cube);
+        f(&self.floor);
+        f(&self.xwing);
+        for obj in &self.orbiting_spheres {
+            f(obj);
+        }
+        for obj in &self.capsules {
+            f(obj);
+        }
+        for obj in &self.walls {
+            f(obj);
+        }
+        for obj in &self.trees {
+            f(obj);
+        }
+        for obj in &self.statues {
+            f(obj);
+        }
+    }
+
+    fn each_object_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut SceneObject3D),
+    {
+        f(&mut self.center_cube);
+        f(&mut self.green_cube);
+        f(&mut self.red_cube);
+        f(&mut self.floor);
+        f(&mut self.xwing);
+        for obj in &mut self.orbiting_spheres {
+            f(obj);
+        }
+        for obj in &mut self.capsules {
+            f(obj);
+        }
+        for obj in &mut self.walls {
+            f(obj);
+        }
+        for obj in &mut self.trees {
+            f(obj);
+        }
+        for obj in &mut self.statues {
+            f(obj);
+        }
+    }
+
     fn render_skybox(&self, projection: &Mat4) {
         self.skybox_shader.use_program();
         self.skybox_shader
@@ -408,66 +461,30 @@ impl Game {
         self.shadow_map
             .set_light_space_matrix(&self.light_space_matrix);
 
-        // Draw objects to depth map
-        self.center_cube.render_depth(&self.shadow_map.shader);
-        self.green_cube.render_depth(&self.shadow_map.shader);
-        self.red_cube.render_depth(&self.shadow_map.shader);
-        self.floor.render_depth(&self.shadow_map.shader);
+        // Unified depth rendering
+        self.each_object(|obj| obj.render_depth(&self.shadow_map.shader));
 
-        for obj in &self.orbiting_spheres {
-            obj.render_depth(&self.shadow_map.shader);
-        }
-        for obj in &self.capsules {
-            obj.render_depth(&self.shadow_map.shader);
-        }
-        for obj in &self.walls {
-            obj.render_depth(&self.shadow_map.shader);
-        }
-        for obj in &self.trees {
-            obj.render_depth(&self.shadow_map.shader);
-        }
-        self.xwing.render_depth(&self.shadow_map.shader);
-        for s in &self.statues {
-            s.render_depth(&self.shadow_map.shader);
-        }
         self.shadow_map.end_pass(1280, 720);
     }
 
     fn render_point_shadow_pass(&mut self) {
         let far_plane = 25.0;
-        unsafe {
-            gl::Enable(gl::CULL_FACE);
-            gl::CullFace(gl::FRONT); // Render back faces for depth map
-        }
 
-        // DEEP OPTIMIZATION: Only update ONE light's shadow map per frame.
-        // This reduces point light shadow rendering cost by 75%.
-        let light_to_update = (self.frame_count % 4) as usize;
+        // OPTIMIZATION: Update only TWO lights per frame.
+        // This balances ghosting artifacts vs performance.
+        for i in 0..2 {
+            // frame 0: lights 0, 1
+            // frame 1: lights 2, 3
+            let offset = (self.frame_count % 2) as usize * 2;
+            let light_idx = offset + i;
 
-        if let Some(pl) = self.point_lights.get(light_to_update) {
-            if let Some(psm) = self.point_shadow_maps.get(light_to_update) {
-                psm.begin_pass(pl.position, far_plane);
-
-                // Draw objects to depth cubemap (optimized)
-                self.center_cube.render_depth(&psm.shader);
-                self.green_cube.render_depth(&psm.shader);
-                self.red_cube.render_depth(&psm.shader);
-                self.floor.render_depth(&psm.shader);
-
-                for obj in &self.capsules {
-                    obj.render_depth(&psm.shader);
+            if let Some(pl) = self.point_lights.get(light_idx) {
+                if let Some(psm) = self.point_shadow_maps.get(light_idx) {
+                    psm.begin_pass(pl.position, far_plane);
+                    self.each_object(|obj| obj.render_depth(&psm.shader));
+                    psm.end_pass(1280, 720);
                 }
-
-                for s in &self.statues {
-                    s.render_depth(&psm.shader);
-                }
-
-                psm.end_pass(1280, 720);
             }
-        }
-
-        unsafe {
-            gl::Disable(gl::CULL_FACE); // Restore double-sided for scene
         }
     }
 
@@ -484,30 +501,7 @@ impl Game {
             light_space_matrix: self.light_space_matrix,
         };
 
-        self.center_cube.render(&context);
-        self.green_cube.render(&context);
-        self.red_cube.render(&context);
-        self.floor.render(&context);
-
-        for obj in &self.orbiting_spheres {
-            obj.render(&context);
-        }
-
-        for obj in &self.capsules {
-            obj.render(&context);
-        }
-
-        for obj in &self.walls {
-            obj.render(&context);
-        }
-
-        for obj in &self.trees {
-            obj.render(&context);
-        }
-        self.xwing.render(&context);
-        for s in &self.statues {
-            s.render(&context);
-        }
+        self.each_object(|obj| obj.render(&context));
     }
 
     fn render_ui(&self) {
@@ -761,97 +755,16 @@ impl Game {
             }
         };
 
-        if let Some(dist) = self
-            .center_cube
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.center_cube.transform))
-        {
-            check(dist, &self.center_cube.name, self.center_cube.id);
-        }
-        if let Some(dist) = self
-            .green_cube
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.green_cube.transform))
-        {
-            check(dist, &self.green_cube.name, self.green_cube.id);
-        }
-        if let Some(dist) = self
-            .red_cube
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.red_cube.transform))
-        {
-            check(dist, &self.red_cube.name, self.red_cube.id);
-        }
-        if let Some(dist) = self
-            .floor
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.floor.transform))
-        {
-            check(dist, &self.floor.name, self.floor.id);
-        }
-
-        for p in &self.orbiting_spheres {
-            if let Some(dist) = p
+        // Unified Raycasting
+        self.each_object(|obj| {
+            if let Some(dist) = obj
                 .collider
                 .as_ref()
-                .and_then(|c| c.intersect(ray, &p.transform))
+                .and_then(|c| c.intersect(ray, &obj.transform))
             {
-                check(dist, &p.name, p.id);
+                check(dist, &obj.name, obj.id);
             }
-        }
-
-        for p in &self.capsules {
-            if let Some(dist) = p
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &p.transform))
-            {
-                check(dist, &p.name, p.id);
-            }
-        }
-
-        for p in &self.walls {
-            if let Some(dist) = p
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &p.transform))
-            {
-                check(dist, &p.name, p.id);
-            }
-        }
-
-        for p in &self.trees {
-            if let Some(dist) = p
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &p.transform))
-            {
-                check(dist, &p.name, p.id);
-            }
-        }
-
-        if let Some(dist) = self
-            .xwing
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.xwing.transform))
-        {
-            check(dist, &self.xwing.name, self.xwing.id);
-        }
-
-        for p in &self.statues {
-            if let Some(dist) = p
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &p.transform))
-            {
-                check(dist, &p.name, p.id);
-            }
-        }
+        });
 
         if let Some((name, id)) = hit_object {
             println!(

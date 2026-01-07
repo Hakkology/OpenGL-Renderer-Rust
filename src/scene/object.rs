@@ -1,7 +1,7 @@
+use crate::primitives::{Capsule, Cube, Plane, Sphere};
+use crate::scene::collider::Collider;
 use crate::scene::transform::{Transform, Transform2D};
 use crate::shaders::Shader;
-use crate::primitives::{Cube, Sphere, Capsule, Plane};
-use crate::scene::collider::Collider;
 // use crate::shapes::{Rectangle, Circle, Triangle}; // Unused/Incompatible shapes for now
 
 use std::rc::Rc;
@@ -15,16 +15,24 @@ pub trait Renderable {
 
 // 3D Primitive Implementation
 impl Renderable for Cube {
-    fn draw(&self) { self.draw(); }
+    fn draw(&self) {
+        self.draw();
+    }
 }
 impl Renderable for Sphere {
-    fn draw(&self) { self.draw(); }
+    fn draw(&self) {
+        self.draw();
+    }
 }
 impl Renderable for Capsule {
-    fn draw(&self) { self.draw(); }
+    fn draw(&self) {
+        self.draw();
+    }
 }
 impl Renderable for Plane {
-    fn draw(&self) { self.draw(); }
+    fn draw(&self) {
+        self.draw();
+    }
 }
 
 impl<T: Renderable + ?Sized> Renderable for Rc<T> {
@@ -41,19 +49,19 @@ impl<T: Renderable + ?Sized> Renderable for Box<T> {
 
 use crate::scene::material::Material;
 
-pub struct SceneObject3D<T: Renderable> {
+pub struct SceneObject3D {
     pub id: usize,
     pub name: String,
     pub transform: Transform,
-    pub renderable: T,
+    pub renderable: Box<dyn Renderable>,
     pub material: Rc<dyn Material>,
     pub collider: Option<Collider>,
 }
 
 use crate::scene::context::RenderContext;
 
-impl<T: Renderable> SceneObject3D<T> {
-    pub fn new(renderable: T, material: Rc<dyn Material>) -> Self {
+impl SceneObject3D {
+    pub fn new(renderable: Box<dyn Renderable>, material: Rc<dyn Material>) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         Self {
             id,
@@ -78,17 +86,29 @@ impl<T: Renderable> SceneObject3D<T> {
     pub fn render(&self, ctx: &RenderContext) {
         self.material.apply();
         let shader = self.material.shader();
-        
+
         // Matrices
         shader.set_mat4("projection", &ctx.projection.to_cols_array());
         shader.set_mat4("view", &ctx.view.to_cols_array());
         shader.set_mat4("model", &self.transform.to_matrix().to_cols_array());
-        shader.set_vec3("u_Scale", self.transform.scale.x, self.transform.scale.y, self.transform.scale.z);
+        shader.set_vec3(
+            "u_Scale",
+            self.transform.scale.x,
+            self.transform.scale.y,
+            self.transform.scale.z,
+        );
 
         // Toggles
         shader.set_int("u_UseLighting", if self.material.is_lit() { 1 } else { 0 });
-        shader.set_int("u_UseShadows", if self.material.receive_shadows() { 1 } else { 0 });
-        
+        shader.set_int(
+            "u_UseShadows",
+            if self.material.receive_shadows() {
+                1
+            } else {
+                0
+            },
+        );
+
         // Lighting
         if self.material.is_lit() {
             ctx.apply_lighting(shader);
@@ -96,16 +116,13 @@ impl<T: Renderable> SceneObject3D<T> {
 
         self.renderable.draw();
     }
-    
+
     pub fn render_depth(&self, shader: &Shader) {
         shader.set_mat4("model", &self.transform.to_matrix().to_cols_array());
         self.renderable.draw();
     }
 
     pub fn destroy(&mut self) {
-        // This will be called when an object is removed.
-        // Rust's Drop trait handles most resources, but we can put 
-        // manual cleanup logic here if needed.
         println!("Destroying object: {}", self.name);
     }
 }

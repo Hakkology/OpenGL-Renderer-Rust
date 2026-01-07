@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec2, Vec3};
+use glam::{Quat, Vec2, Vec3};
 use glfw::{Action, WindowEvent};
 use std::rc::Rc;
 
@@ -10,17 +10,17 @@ use crate::light::{
     DirectionalLight, PointLight,
 };
 use crate::math::ray::Ray;
-use crate::primitives::{Capsule, Cube, Plane, Skybox, Sphere};
+use crate::primitives::{Capsule, Cube, Plane, Sphere};
+use crate::renderer::Renderer;
 use crate::scene::collider::Collider;
-use crate::scene::context::RenderContext;
+
 use crate::scene::manager::Scene;
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
 use crate::scene::object::SceneObject3D;
 use crate::shaders::{CubeMap, Shader, Texture};
-use crate::shadow::ShadowMap;
 use crate::time::Time;
-use crate::ui::inspector::Inspector;
-use crate::ui::{Button, TextRenderer};
+use crate::ui::TextRenderer;
+use crate::ui::UIManager;
 
 pub trait RenderMode {
     fn update(&mut self, time: &Time);
@@ -31,34 +31,21 @@ pub struct Game {
     // Scene
     scene: Scene,
 
-    skybox: Skybox,
-
-    // Shaders necessary for dynamic UI elements
-    ui_rect_shader: Rc<Shader>,
-    skybox_shader: Rc<Shader>,
-
-    // Textures
-    skybox_cubemap: CubeMap,
-
     // UI
-    text_renderer: TextRenderer,
-    pause_button: Button,
+    ui_manager: UIManager,
+    selected_object_id: Option<usize>,
 
     // Systems
+    renderer: Renderer,
     input: Input,
     camera: OrbitCamera,
-    shadow_map: ShadowMap,
-    point_shadow_maps: Vec<crate::shadow::PointShadowMap>,
 
     // Lights
     light: DirectionalLight,
     point_lights: Vec<PointLight>,
 
     // State
-    light_space_matrix: Mat4,
-    selected_object_id: Option<usize>,
-    inspector: Inspector,
-    frame_count: u64,
+    is_paused: bool,
 }
 
 impl Game {
@@ -120,18 +107,11 @@ impl Game {
         let text_renderer = TextRenderer::new(ui_shader);
         println!("TextRenderer initialized.");
 
-        // Shadow map (2048x2048 resolution)
-        let shadow_map = crate::shadow::ShadowMap::new(2048, 2048);
-        println!("Directional shadow map initialized.");
+        // Initialize Renderer
+        let renderer = Renderer::new(skybox_shader, skybox_cubemap);
+        println!("Renderer initialized.");
 
         let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.3, 1.0, 32.0);
-
-        // Point shadow maps (one for each light)
-        let mut point_shadow_maps = Vec::new();
-        for _ in 0..4 {
-            point_shadow_maps.push(crate::shadow::PointShadowMap::new(512));
-        }
-        println!("Point shadow maps initialized with 512x512 resolution.");
 
         // Create Shared Meshes
         let cube_mesh = Rc::new(Cube::new(1.0));
@@ -354,131 +334,23 @@ impl Game {
             );
         }
 
+        // Initialize UI Manager
+        let ui_manager = UIManager::new(text_renderer, ui_rect_shader);
+        println!("UIManager initialized.");
+
         Self {
             scene,
 
-            skybox: Skybox::new(),
-            ui_rect_shader,
-            skybox_shader,
-            skybox_cubemap,
+            ui_manager,
+            selected_object_id: None,
 
-            text_renderer,
-            pause_button: Button::new("Pause", 1170.0, 660.0, 100.0, 40.0),
-
+            renderer,
             input: Input::new(),
             camera: OrbitCamera::new(),
-            shadow_map,
-            point_shadow_maps,
             light,
 
-            point_lights,
-            light_space_matrix: Mat4::IDENTITY,
-            selected_object_id: None,
-            inspector: Inspector::new(1070.0, 500.0),
-            frame_count: 0,
-        }
-    }
-
-    fn render_skybox(&self, projection: &Mat4) {
-        self.skybox_shader.use_program();
-        self.skybox_shader
-            .set_mat4("projection", &projection.to_cols_array());
-        self.skybox_shader
-            .set_mat4("view", &self.camera.skybox_view_matrix().to_cols_array());
-        self.skybox_cubemap.bind(0);
-        self.skybox_shader.set_int("skybox", 0);
-        self.skybox.draw();
-    }
-
-    fn render_shadow_pass(&self) {
-        self.shadow_map.begin_pass();
-        self.shadow_map
-            .set_light_space_matrix(&self.light_space_matrix);
-
-        for obj in &self.scene.objects {
-            obj.render_depth(&self.shadow_map.shader);
-        }
-        self.shadow_map.end_pass(1280, 720);
-    }
-
-    fn render_point_shadow_pass(&mut self) {
-        let far_plane = 25.0;
-        for i in 0..2 {
-            let offset = (self.frame_count % 2) as usize * 2;
-            let light_idx = offset + i;
-
-            if let Some(pl) = self.point_lights.get(light_idx) {
-                if let Some(psm) = self.point_shadow_maps.get(light_idx) {
-                    psm.begin_pass(pl.position, far_plane);
-                    for obj in &self.scene.objects {
-                        obj.render_depth(&psm.shader);
-                    }
-                    psm.end_pass(1280, 720);
-                }
-            }
-        }
-    }
-
-    fn render_objects(&self, projection: &Mat4, view: &Mat4) {
-        let context = RenderContext {
-            projection: *projection,
-            view: *view,
-            view_pos: self.camera.position,
-            light: &self.light,
-            point_lights: &self.point_lights,
-            shadow_map: &self.shadow_map,
-            point_shadow_maps: &self.point_shadow_maps,
-            far_plane: 25.0,
-            light_space_matrix: self.light_space_matrix,
-        };
-
-        for obj in &self.scene.objects {
-            obj.render(&context);
-        }
-    }
-
-    fn render_ui(&self) {
-        self.text_renderer.render_rect(
-            &self.ui_rect_shader,
-            10.0,
-            660.0,
-            180.0,
-            50.0,
-            glam::Vec4::new(0.0, 0.0, 0.0, 0.5),
-            1280.0,
-            720.0,
-        );
-        self.text_renderer.render_text(
-            "Hakkology",
-            20.0,
-            665.0,
-            32.0,
-            Vec3::new(1.0, 1.0, 1.0),
-            1280.0,
-            720.0,
-        );
-        self.pause_button
-            .draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0);
-
-        if let Some(id) = self.selected_object_id {
-            let mut found = None;
-            for obj in &self.scene.objects {
-                if obj.id == id {
-                    found = Some((obj.name.clone(), obj.transform.position));
-                    break;
-                }
-            }
-
-            if let Some((name, pos)) = found {
-                self.inspector.draw(
-                    &self.text_renderer,
-                    &self.ui_rect_shader,
-                    1280.0,
-                    720.0,
-                    &name,
-                    pos,
-                );
-            }
+            point_lights: point_lights.to_vec(),
+            is_paused: false,
         }
     }
 
@@ -503,11 +375,6 @@ impl RenderMode for Game {
         let delta_time = time.delta_time;
 
         self.camera.update(&self.input, delta_time);
-
-        // Update light space matrix for shadows
-        self.light_space_matrix =
-            self.shadow_map
-                .light_space_matrix(self.light.direction, Vec3::ZERO, 35.0);
 
         self.input.reset_delta();
 
@@ -564,26 +431,13 @@ impl RenderMode for Game {
                 self.point_lights[i].position = Vec3::new(light_x, light_y, light_z);
             }
         }
-
-        self.frame_count += 1;
     }
 
     fn render(&mut self) {
-        // Shadow passes
-        self.render_shadow_pass();
-        self.render_point_shadow_pass();
-
-        let projection = self.camera.projection_matrix(1280.0 / 720.0);
-        let view = self.camera.view_matrix();
-
-        // Clear after shadow pass
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        }
-
-        self.render_skybox(&projection);
-        self.render_objects(&projection, &view);
-        self.render_ui();
+        self.renderer
+            .render(&self.scene, &self.camera, &self.light, &self.point_lights);
+        self.ui_manager
+            .render(&self.scene, self.selected_object_id, self.is_paused);
     }
 
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time) {
@@ -593,19 +447,15 @@ impl RenderMode for Game {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
 
             // Pause Button
-            if self.pause_button.is_clicked(mx, my, 720.0) {
+            if self.ui_manager.pause_button.is_clicked(mx, my, 720.0) {
                 time.toggle_pause();
-                self.pause_button.text = if time.is_paused {
-                    "Resume".to_string()
-                } else {
-                    "Pause".to_string()
-                };
+                self.is_paused = time.is_paused;
                 return;
             }
 
             // Inspector Interaction
             if self.selected_object_id.is_some() {
-                let delta = self.inspector.check_clicks(mx, my, 720.0);
+                let delta = self.ui_manager.inspector.check_clicks(mx, my, 720.0);
                 if delta != Vec3::ZERO {
                     if let Some(id) = self.selected_object_id {
                         self.apply_transform_delta(id, delta);

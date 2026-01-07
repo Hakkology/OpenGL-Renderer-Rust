@@ -3,6 +3,7 @@ use super::Light;
 use crate::shaders::Shader;
 use glam::Vec3;
 
+#[derive(Clone)]
 pub struct PointLight {
     pub position: Vec3,
     pub properties: LightProperties,

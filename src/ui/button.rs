@@ -1,7 +1,8 @@
-use glam::{Vec3, Vec4};
-use crate::ui::TextRenderer;
 use crate::shaders::Shader;
+use crate::ui::TextRenderer;
+use glam::{Vec3, Vec4};
 
+#[derive(Clone)]
 pub struct Button {
     pub text: String,
     pub x: f32,
@@ -31,20 +32,45 @@ impl Button {
         // My UI rendering uses 0 at bottom (Ortho 0..height).
         // So we need to flip mouse_y.
         let corrected_mouse_y = window_height - mouse_y;
-        
-        mouse_x >= self.x && mouse_x <= self.x + self.width &&
-        corrected_mouse_y >= self.y && corrected_mouse_y <= self.y + self.height
+
+        mouse_x >= self.x
+            && mouse_x <= self.x + self.width
+            && corrected_mouse_y >= self.y
+            && corrected_mouse_y <= self.y + self.height
     }
 
-    pub fn draw(&self, renderer: &TextRenderer, rect_shader: &Shader, window_width: f32, window_height: f32) {
+    pub fn draw(
+        &self,
+        renderer: &TextRenderer,
+        rect_shader: &Shader,
+        window_width: f32,
+        window_height: f32,
+    ) {
         // Draw background
-        renderer.render_rect(rect_shader, self.x, self.y, self.width, self.height, self.bg_color, window_width, window_height);
-        
+        renderer.render_rect(
+            rect_shader,
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.bg_color,
+            window_width,
+            window_height,
+        );
+
         // Draw text centered roughly
         let text_scale = self.height * 0.6;
         let text_x = self.x + 10.0;
         let text_y = self.y + (self.height - text_scale) / 2.0 + 5.0;
-        
-        renderer.render_text(&self.text, text_x, text_y, text_scale, self.text_color, window_width, window_height);
+
+        renderer.render_text(
+            &self.text,
+            text_x,
+            text_y,
+            text_scale,
+            self.text_color,
+            window_width,
+            window_height,
+        );
     }
 }

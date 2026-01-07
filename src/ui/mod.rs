@@ -1,5 +1,7 @@
-pub mod text_renderer;
 pub mod button;
 pub mod inspector;
-pub use text_renderer::TextRenderer;
+pub mod manager;
+pub mod text_renderer;
 pub use button::Button;
+pub use manager::UIManager;
+pub use text_renderer::TextRenderer;

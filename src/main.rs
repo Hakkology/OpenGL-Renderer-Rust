@@ -1,25 +1,26 @@
-extern crate glfw;
 extern crate gl;
+extern crate glfw;
 
-mod window;
 mod app;
-mod shaders;
+mod camera;
+mod game;
+pub mod importer;
 mod input;
-mod shapes;
 mod light;
 mod math;
 mod primitives;
+mod renderer;
 mod scene;
-mod game;
-mod ui;
-mod time;
-mod camera;
+mod shaders;
 mod shadow;
-pub mod importer;
+mod shapes;
+mod time;
+mod ui;
+mod window;
 
-use window::GlWindow;
 use app::Application;
 use game::Game;
+use window::GlWindow;
 
 fn main() {
     // 1. Pencereyi ve OpenGL context'ini oluştur

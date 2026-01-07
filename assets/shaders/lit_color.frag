@@ -33,6 +33,21 @@ uniform vec3 objectColor;
 
 // Shadow
 uniform sampler2D shadowMap;
+uniform samplerCube pointShadowMaps[NR_POINT_LIGHTS];
+uniform float farPlane;
+
+float calcPointShadow(vec3 fragPos, vec3 lightPos, samplerCube shadowMap) {
+    vec3 fragToLight = fragPos - lightPos;
+    float closestDepth = texture(shadowMap, fragToLight).r;
+    closestDepth *= farPlane;
+    float currentDepth = length(fragToLight);
+    
+    // Bias
+    float bias = 0.05;
+    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    
+    return shadow;
+}
 
 float calcShadow(vec4 fragPosLightSpace, vec3 normal, vec3 lightDirNorm) {
     // Perspective divide
@@ -77,7 +92,7 @@ vec3 calcDirLight(vec3 norm, vec3 viewDir, float shadow) {
     return ambient + (1.0 - shadow) * (diffuse + specular);
 }
 
-vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir) {
+vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir, float shadow) {
     vec3 lightDirNorm = normalize(light.position - FragPos);
     float diff = max(dot(norm, lightDirNorm), 0.0);
     vec3 reflectDir = reflect(-lightDirNorm, norm);
@@ -88,7 +103,8 @@ vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir) {
     vec3 ambient = light.Ambient * light.Color * attenuation;
     vec3 diffuse = light.Diffuse * diff * light.Color * attenuation;
     vec3 specular = light.Specular * spec * light.Color * attenuation;
-    return ambient + diffuse + specular;
+    
+    return ambient + (1.0 - shadow) * (diffuse + specular);
 }
 
 // Toggles
@@ -111,9 +127,14 @@ void main() {
         }
 
         result = calcDirLight(norm, viewDir, shadow);
-        // result += calcPointLight(norm, viewDir);
-        for(int i = 0; i < NR_POINT_LIGHTS; i++)
-            result += calcPointLight(pointLights[i], norm, viewDir);
+        
+        for(int i = 0; i < NR_POINT_LIGHTS; i++) {
+            float pShadow = 0.0;
+            if (u_UseShadows != 0) {
+                pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i]);
+            }
+            result += calcPointLight(pointLights[i], norm, viewDir, pShadow);
+        }
     }
     
     result *= objectColor;

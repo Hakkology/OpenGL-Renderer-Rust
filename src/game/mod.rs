@@ -53,6 +53,7 @@ pub struct Game {
     input: Input,
     camera: OrbitCamera,
     shadow_map: ShadowMap,
+    point_shadow_maps: Vec<crate::shadow::PointShadowMap>,
 
     // Lights
     light: DirectionalLight,
@@ -124,10 +125,17 @@ impl Game {
         println!("TextRenderer initialized.");
 
         // Shadow map (2048x2048 resolution)
-        let shadow_map = ShadowMap::new(2048, 2048);
-        println!("Shadow map initialized.");
+        let shadow_map = crate::shadow::ShadowMap::new(2048, 2048);
+        println!("Directional shadow map initialized.");
 
         let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.3, 1.0, 32.0);
+
+        // Point shadow maps (one for each light)
+        let mut point_shadow_maps = Vec::new();
+        for _ in 0..4 {
+            point_shadow_maps.push(crate::shadow::PointShadowMap::new(512));
+        }
+        println!("Point shadow maps initialized with 512x512 resolution.");
 
         // Create Shared Meshes
         let cube_mesh = Rc::new(Cube::new(1.0));
@@ -372,6 +380,7 @@ impl Game {
             input: Input::new(),
             camera: OrbitCamera::new(),
             shadow_map,
+            point_shadow_maps,
             light,
 
             point_lights,
@@ -406,24 +415,63 @@ impl Game {
         for obj in &self.orbiting_spheres {
             obj.render_depth(&self.shadow_map.shader);
         }
-
         for obj in &self.capsules {
             obj.render_depth(&self.shadow_map.shader);
         }
-
         for obj in &self.walls {
             obj.render_depth(&self.shadow_map.shader);
         }
-
         for obj in &self.trees {
             obj.render_depth(&self.shadow_map.shader);
         }
-
         self.xwing.render_depth(&self.shadow_map.shader);
         for s in &self.statues {
             s.render_depth(&self.shadow_map.shader);
         }
         self.shadow_map.end_pass(1280, 720);
+    }
+
+    fn render_point_shadow_pass(&self) {
+        let far_plane = 25.0;
+        unsafe {
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::FRONT); // Render back faces for depth map
+        }
+
+        for (i, pl) in self.point_lights.iter().enumerate() {
+            if i >= self.point_shadow_maps.len() {
+                break;
+            }
+            let psm = &self.point_shadow_maps[i];
+            psm.begin_pass(pl.position, far_plane);
+
+            // Draw critical objects to depth cubemap (optimized)
+            self.center_cube.render_depth(&psm.shader);
+            self.green_cube.render_depth(&psm.shader);
+            self.red_cube.render_depth(&psm.shader);
+
+            // Skip floor for point shadows if performance is still an issue,
+            // but keep it for now as it's the main shadow receiver.
+            self.floor.render_depth(&psm.shader);
+
+            for obj in &self.capsules {
+                obj.render_depth(&psm.shader);
+            }
+
+            // Only render statues to their own light's shadow pass if nearby
+            for s in &self.statues {
+                s.render_depth(&psm.shader);
+            }
+
+            // Skip complex/distant objects like trees in point shadow passes
+            // for obj in &self.trees { obj.render_depth(&psm.shader); }
+
+            psm.end_pass(1280, 720);
+        }
+
+        unsafe {
+            gl::Disable(gl::CULL_FACE); // Restore double-sided for scene
+        }
     }
 
     fn render_objects(&self, projection: &Mat4, view: &Mat4) {
@@ -434,6 +482,8 @@ impl Game {
             light: &self.light,
             point_lights: &self.point_lights,
             shadow_map: &self.shadow_map,
+            point_shadow_maps: &self.point_shadow_maps,
+            far_plane: 25.0,
             light_space_matrix: self.light_space_matrix,
         };
 
@@ -889,8 +939,9 @@ impl RenderMode for Game {
     }
 
     fn render(&mut self) {
-        // Shadow pass
+        // Shadow passes
         self.render_shadow_pass();
+        self.render_point_shadow_pass();
 
         let projection = self.camera.projection_matrix(1280.0 / 720.0);
         let view = self.camera.view_matrix();

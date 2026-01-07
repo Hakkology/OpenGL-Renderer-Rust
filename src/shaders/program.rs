@@ -1,7 +1,7 @@
 extern crate gl;
 use gl::types::*;
-use std::ptr;
 use std::ffi::CString;
+use std::ptr;
 
 use super::part::{ShaderPart, ShaderType};
 
@@ -11,12 +11,19 @@ pub struct Program {
 
 impl Program {
     // Create from program parts directly
-    pub fn from_parts(vertex: &ShaderPart, fragment: &ShaderPart) -> Result<Program, String> {
+    pub fn from_parts(
+        vertex: &ShaderPart,
+        fragment: &ShaderPart,
+        geometry: Option<&ShaderPart>,
+    ) -> Result<Program, String> {
         let program_id;
         unsafe {
             program_id = gl::CreateProgram();
             gl::AttachShader(program_id, vertex.id);
             gl::AttachShader(program_id, fragment.id);
+            if let Some(geom) = geometry {
+                gl::AttachShader(program_id, geom.id);
+            }
             gl::LinkProgram(program_id);
 
             let mut success = gl::FALSE as GLint;
@@ -24,9 +31,14 @@ impl Program {
             if success != gl::TRUE as GLint {
                 let mut len = 0;
                 gl::GetProgramiv(program_id, gl::INFO_LOG_LENGTH, &mut len);
-                let error = CString::from_vec_unchecked(vec![b' '; len as usize]);
-                gl::GetProgramInfoLog(program_id, len, ptr::null_mut(), error.as_ptr() as *mut GLchar);
-                return Err(error.to_string_lossy().into_owned());
+                let mut buffer = vec![0; len as usize];
+                gl::GetProgramInfoLog(
+                    program_id,
+                    len,
+                    ptr::null_mut(),
+                    buffer.as_mut_ptr() as *mut GLchar,
+                );
+                return Err(String::from_utf8_lossy(&buffer).into_owned());
             }
         }
         Ok(Program { id: program_id })
@@ -42,9 +54,28 @@ impl Program {
         let vs = ShaderPart::from_source(&vs_source, ShaderType::Vertex)?;
         let fs = ShaderPart::from_source(&fs_source, ShaderType::Fragment)?;
 
-        Self::from_parts(&vs, &fs)
+        Self::from_parts(&vs, &fs, None)
     }
-    
+
+    pub fn from_files_with_geom(
+        vertex_path: &str,
+        fragment_path: &str,
+        geometry_path: &str,
+    ) -> Result<Program, String> {
+        let vs_source = std::fs::read_to_string(vertex_path)
+            .map_err(|e| format!("Failed to read vertex shader '{}': {}", vertex_path, e))?;
+        let fs_source = std::fs::read_to_string(fragment_path)
+            .map_err(|e| format!("Failed to read fragment shader '{}': {}", fragment_path, e))?;
+        let gs_source = std::fs::read_to_string(geometry_path)
+            .map_err(|e| format!("Failed to read geometry shader '{}': {}", geometry_path, e))?;
+
+        let vs = ShaderPart::from_source(&vs_source, ShaderType::Vertex)?;
+        let fs = ShaderPart::from_source(&fs_source, ShaderType::Fragment)?;
+        let gs = ShaderPart::from_source(&gs_source, ShaderType::Geometry)?;
+
+        Self::from_parts(&vs, &fs, Some(&gs))
+    }
+
     pub fn use_program(&self) {
         unsafe {
             gl::UseProgram(self.id);
@@ -76,11 +107,11 @@ impl Program {
     }
 
     pub fn set_vec2(&self, name: &str, x: f32, y: f32) {
-         let c_name = CString::new(name).unwrap();
-         unsafe {
-             let loc = gl::GetUniformLocation(self.id, c_name.as_ptr());
-             gl::Uniform2f(loc, x, y);
-         }
+        let c_name = CString::new(name).unwrap();
+        unsafe {
+            let loc = gl::GetUniformLocation(self.id, c_name.as_ptr());
+            gl::Uniform2f(loc, x, y);
+        }
     }
 
     pub fn set_vec3(&self, name: &str, x: f32, y: f32, z: f32) {

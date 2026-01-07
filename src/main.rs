@@ -2,11 +2,13 @@ extern crate gl;
 extern crate glfw;
 
 mod app;
+mod assets;
 mod camera;
 mod game;
 pub mod importer;
 mod input;
 mod light;
+mod logic;
 mod math;
 mod primitives;
 mod renderer;

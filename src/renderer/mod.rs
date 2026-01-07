@@ -10,7 +10,7 @@ use std::rc::Rc;
 pub struct Renderer {
     pub skybox: Skybox,
     pub skybox_shader: Rc<Shader>,
-    pub skybox_cubemap: CubeMap,
+    pub skybox_cubemap: Rc<CubeMap>,
     pub shadow_map: ShadowMap,
     pub point_shadow_maps: Vec<PointShadowMap>,
     pub light_space_matrix: Mat4,
@@ -18,7 +18,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(skybox_shader: Rc<Shader>, skybox_cubemap: CubeMap) -> Self {
+    pub fn new(skybox_shader: Rc<Shader>, skybox_cubemap: Rc<CubeMap>) -> Self {
         // Shadow map (2048x2048 resolution)
         let shadow_map = ShadowMap::new(2048, 2048);
 

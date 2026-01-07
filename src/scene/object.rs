@@ -47,6 +47,7 @@ impl<T: Renderable + ?Sized> Renderable for Box<T> {
     }
 }
 
+use crate::logic::Controller;
 use crate::scene::material::Material;
 
 pub struct SceneObject3D {
@@ -56,6 +57,7 @@ pub struct SceneObject3D {
     pub renderable: Box<dyn Renderable>,
     pub material: Rc<dyn Material>,
     pub collider: Option<Collider>,
+    pub controller: Option<Box<dyn Controller>>,
 }
 
 use crate::scene::context::RenderContext;
@@ -70,6 +72,7 @@ impl SceneObject3D {
             renderable,
             material,
             collider: None,
+            controller: None,
         }
     }
 
@@ -81,6 +84,17 @@ impl SceneObject3D {
     pub fn with_collider(mut self, collider: Collider) -> Self {
         self.collider = Some(collider);
         self
+    }
+
+    pub fn with_controller(mut self, controller: Box<dyn Controller>) -> Self {
+        self.controller = Some(controller);
+        self
+    }
+
+    pub fn update(&mut self, current_time: f32, delta_time: f32) {
+        if let Some(ref controller) = self.controller {
+            controller.update(&mut self.transform, current_time, delta_time);
+        }
     }
 
     pub fn render(&self, ctx: &RenderContext) {

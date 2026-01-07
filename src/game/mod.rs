@@ -2,23 +2,26 @@ use glam::{Quat, Vec2, Vec3};
 use glfw::{Action, WindowEvent};
 use std::rc::Rc;
 
+use crate::assets::AssetManager;
 use crate::camera::OrbitCamera;
-use crate::importer::AssetImporter;
 use crate::input::Input;
 use crate::light::{
     components::{Attenuation, LightProperties},
     DirectionalLight, PointLight,
 };
+use crate::logic::controller::{
+    FloatingController, OrbitController, OscillationController, RotationController,
+};
 use crate::math::ray::Ray;
 use crate::primitives::{Capsule, Cube, Plane, Sphere};
 use crate::renderer::Renderer;
 use crate::scene::collider::Collider;
-
 use crate::scene::manager::Scene;
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
 use crate::scene::object::SceneObject3D;
-use crate::shaders::{CubeMap, Shader, Texture};
+
 use crate::time::Time;
+use crate::ui::Button;
 use crate::ui::TextRenderer;
 use crate::ui::UIManager;
 
@@ -28,11 +31,15 @@ pub trait RenderMode {
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time);
 }
 pub struct Game {
+    // Assets
+    assets: AssetManager,
+
     // Scene
     scene: Scene,
 
     // UI
     ui_manager: UIManager,
+    pause_button: Button,
     selected_object_id: Option<usize>,
 
     // Systems
@@ -51,69 +58,66 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         println!("Initializing Game...");
-        // Load shaders
-        let colored_shader = Rc::new(
-            Shader::from_files("assets/shaders/lit.vert", "assets/shaders/lit_color.frag")
-                .expect("Failed to create colored shader"),
-        );
-        println!("Colored shader loaded.");
+        let mut assets = AssetManager::new();
 
-        let textured_shader = Rc::new(
-            Shader::from_files(
-                "assets/shaders/lit.vert",
-                "assets/shaders/lit_textured.frag",
-            )
-            .expect("Failed to create textured shader"),
+        // 1. Shaders
+        let colored_shader = assets.load_shader(
+            "colored",
+            "assets/shaders/lit.vert",
+            "assets/shaders/lit_color.frag",
         );
-        println!("Textured shader loaded.");
-
-        let ui_shader = Rc::new(
-            Shader::from_files("assets/shaders/ui.vert", "assets/shaders/ui_text.frag")
-                .expect("Failed to create UI text shader"),
+        let textured_shader = assets.load_shader(
+            "textured",
+            "assets/shaders/lit.vert",
+            "assets/shaders/lit_textured.frag",
         );
-        println!("UI shader loaded.");
-
-        let ui_rect_shader = Rc::new(
-            Shader::from_files("assets/shaders/ui.vert", "assets/shaders/ui_color.frag")
-                .expect("Failed to create UI rect shader"),
+        let ui_shader = assets.load_shader(
+            "ui_text",
+            "assets/shaders/ui.vert",
+            "assets/shaders/ui_text.frag",
         );
-        println!("UI rect shader loaded.");
-
-        let skybox_shader = Rc::new(
-            Shader::from_files("assets/shaders/skybox.vert", "assets/shaders/skybox.frag")
-                .expect("Failed to create skybox shader"),
+        let ui_rect_shader = assets.load_shader(
+            "ui_color",
+            "assets/shaders/ui.vert",
+            "assets/shaders/ui_color.frag",
         );
-        println!("Skybox shader loaded.");
-
-        let texture = Rc::new(
-            Texture::from_file(
-                "assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
-            )
-            .expect("Failed to load texture"),
+        let skybox_shader = assets.load_shader(
+            "skybox",
+            "assets/shaders/skybox.vert",
+            "assets/shaders/skybox.frag",
         );
-        println!("Texture loaded.");
 
-        let sphere_texture = Rc::new(
-            Texture::from_file("assets/resources/textures/StoneBricks_1K.tiff")
-                .expect("Failed to load sphere texture"),
+        // 2. Textures
+        let texture = assets.load_texture(
+            "grass",
+            "assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
         );
-        println!("Sphere texture loaded.");
+        let sphere_texture =
+            assets.load_texture("stone", "assets/resources/textures/StoneBricks_1K.tiff");
 
-        let skybox_cubemap =
-            CubeMap::from_cross_file("assets/resources/textures/Cubemap_Sky_22-512x512.png")
-                .expect("Failed to load skybox cubemap");
-        println!("Skybox cubemap loaded.");
+        // 3. Cubemap
+        let skybox_cubemap = assets.load_cubemap(
+            "skybox",
+            "assets/resources/textures/Cubemap_Sky_22-512x512.png",
+        );
 
         let text_renderer = TextRenderer::new(ui_shader);
-        println!("TextRenderer initialized.");
+        let ui_manager = UIManager::new(text_renderer, ui_rect_shader);
 
-        // Initialize Renderer
+        // Renderer
         let renderer = Renderer::new(skybox_shader, skybox_cubemap);
-        println!("Renderer initialized.");
 
         let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.3, 1.0, 32.0);
 
-        // Create Shared Meshes
+        // Models
+        let tree2_model = assets.load_model("tree", "assets/resources/models/Tree2/trees9.obj");
+        let xwing_model = assets.load_model("xwing", "assets/resources/models/xwing/x-wing.obj");
+        let statue_model = assets.load_model(
+            "statue",
+            "assets/resources/models/Statue/12334_statue_v1_l3.obj",
+        );
+
+        // Shared Meshes
         let cube_mesh = Rc::new(Cube::new(1.0));
         let sphere_mesh = Rc::new(Sphere::new(0.6, 32, 32));
         let capsule_mesh = Rc::new(Capsule::new(0.4, 1.2, 32, 16, 16));
@@ -152,6 +156,13 @@ impl Game {
             receive_shadows: true,
         });
 
+        let grey_material = Rc::new(ColoredMaterial {
+            shader: colored_shader.clone(),
+            color: Vec3::new(0.7, 0.7, 0.7),
+            is_lit: true,
+            receive_shadows: true,
+        });
+
         let mut scene = Scene::new();
 
         // Create Scene Objects
@@ -160,32 +171,47 @@ impl Game {
             .with_collider(Collider::new_cube(1.0));
         scene.add_object(center_cube);
 
-        let green_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), green_material.clone())
-            .with_name("Green Cube")
-            .with_collider(Collider::new_cube(1.0));
+        let mut green_cube =
+            SceneObject3D::new(Box::new(cube_mesh.clone()), green_material.clone())
+                .with_name("Green Cube")
+                .with_collider(Collider::new_cube(1.0))
+                .with_controller(Box::new(RotationController::new(Vec3::Y, 1.0)));
+        green_cube.transform.position = Vec3::new(0.0, 2.0, 0.0);
         scene.green_cube_id = scene.add_object(green_cube);
 
-        let red_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), red_material.clone())
+        let mut red_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), red_material.clone())
             .with_name("Red Cube")
-            .with_collider(Collider::new_cube(1.0));
+            .with_collider(Collider::new_cube(1.0))
+            .with_controller(Box::new(RotationController::new(Vec3::Y, -1.0)));
+        red_cube.transform.position = Vec3::new(0.0, -2.0, 0.0);
         scene.red_cube_id = scene.add_object(red_cube);
 
+        let configs = [(2.5, 1.2), (4.0, 0.8)];
         for i in 0..2 {
+            let (radius, speed) = configs[i];
             let sphere = SceneObject3D::new(Box::new(sphere_mesh.clone()), stone_material.clone())
                 .with_name(&format!("Orbiting Sphere {}", i))
-                .with_collider(Collider::new_sphere(0.6));
+                .with_collider(Collider::new_sphere(0.6))
+                .with_controller(Box::new(OrbitController::new(
+                    Vec3::ZERO,
+                    radius,
+                    speed,
+                    i as f32 * std::f32::consts::PI,
+                )));
             scene.orbiting_sphere_ids.push(sphere.id);
             scene.add_object(sphere);
         }
 
         for i in 0..2 {
+            let offset = i as f32 * std::f32::consts::PI;
             let capsule =
                 SceneObject3D::new(Box::new(capsule_mesh.clone()), grass_material.clone())
                     .with_name(&format!("Floating Capsule {}", i))
                     .with_collider(Collider::new_box(
                         Vec3::new(-0.4, -1.0, -0.4),
                         Vec3::new(0.4, 1.0, 0.4),
-                    ));
+                    ))
+                    .with_controller(Box::new(FloatingController::new(0.7, offset)));
             scene.capsule_ids.push(capsule.id);
             scene.add_object(capsule);
         }
@@ -251,14 +277,10 @@ impl Game {
         w4.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
         scene.add_object(w4);
 
-        // Load Trees
-        let tree2_model = Rc::new(
-            AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj")
-                .expect("Failed to load tree2"),
-        );
-        let tree_positions = [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)];
-
-        for (i, pos) in tree_positions.iter().enumerate() {
+        for (i, pos) in [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)]
+            .iter()
+            .enumerate()
+        {
             let mut tree =
                 SceneObject3D::new(Box::new(tree2_model.clone()), green_material.clone())
                     .with_name(&format!("Tree {}", i))
@@ -271,30 +293,13 @@ impl Game {
             scene.add_object(tree);
         }
 
-        // Load X-Wing
-        let xwing_model = Rc::new(
-            AssetImporter::load_model("assets/resources/models/xwing/x-wing.obj")
-                .expect("Failed to load xwing"),
-        );
-        let grey_material = Rc::new(ColoredMaterial {
-            shader: colored_shader.clone(),
-            color: Vec3::new(0.7, 0.7, 0.7),
-            is_lit: true,
-            receive_shadows: true,
-        });
-
-        let mut xwing = SceneObject3D::new(Box::new(xwing_model.clone()), grey_material.clone())
+        let mut xwing = SceneObject3D::new(Box::new(xwing_model), grey_material.clone())
             .with_name("X-Wing")
-            .with_collider(Collider::new_sphere(2.0));
+            .with_collider(Collider::new_sphere(2.0))
+            .with_controller(Box::new(OscillationController::new(50.0, 2.0, 0.5)));
         xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
         xwing.transform.scale = Vec3::splat(1.0);
         scene.xwing_id = scene.add_object(xwing);
-
-        // Load Statues
-        let statue_model = Rc::new(
-            AssetImporter::load_model("assets/resources/models/Statue/12334_statue_v1_l3.obj")
-                .expect("Failed to load statue"),
-        );
 
         let statue_configs = [
             (Vec3::new(0.0, -3.9, 20.0), 180.0f32),
@@ -315,41 +320,37 @@ impl Game {
             scene.add_object(s);
         }
 
-        // Initialize 4 Point Lights
         let mut point_lights = Vec::new();
         let colors = [
-            Vec3::new(1.0, 0.0, 0.0), // Red
-            Vec3::new(0.0, 1.0, 0.0), // Green
-            Vec3::new(0.0, 0.0, 1.0), // Blue
-            Vec3::new(1.0, 0.5, 0.0), // Orange
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(1.0, 0.5, 0.0),
         ];
 
         for i in 0..4 {
             point_lights.push(
                 PointLight::new(
-                    Vec3::ZERO, // Position will be updated in update loop
+                    Vec3::ZERO,
                     LightProperties::new(0.2, 2.5, 3.0, 32.0).with_color(colors[i % 4]),
                 )
-                .with_attenuation(Attenuation::new(1.0, 0.35, 0.44)), // Increased attenuation for more focused light
+                .with_attenuation(Attenuation::new(1.0, 0.35, 0.44)),
             );
         }
 
-        // Initialize UI Manager
-        let ui_manager = UIManager::new(text_renderer, ui_rect_shader);
-        println!("UIManager initialized.");
+        let pause_button = Button::new("Pause", 1170.0, 660.0, 100.0, 40.0);
 
         Self {
+            assets,
             scene,
-
             ui_manager,
+            pause_button,
             selected_object_id: None,
-
             renderer,
             input: Input::new(),
             camera: OrbitCamera::new(),
             light,
-
-            point_lights: point_lights.to_vec(),
+            point_lights,
             is_paused: false,
         }
     }
@@ -380,38 +381,7 @@ impl RenderMode for Game {
 
         // Animated Objects logic
         for obj in &mut self.scene.objects {
-            if obj.id == self.scene.green_cube_id {
-                obj.transform.position = Vec3::new(0.0, 2.0, 0.0);
-                obj.transform.rotation = Quat::from_rotation_y(current_time);
-            } else if obj.id == self.scene.red_cube_id {
-                obj.transform.position = Vec3::new(0.0, -2.0, 0.0);
-                obj.transform.rotation = Quat::from_rotation_y(-current_time);
-            } else if let Some(i) = self
-                .scene
-                .orbiting_sphere_ids
-                .iter()
-                .position(|&id| id == obj.id)
-            {
-                let configs = [(2.5, 1.2), (4.0, 0.8)];
-                let (radius, speed) = configs[i];
-                let x = (current_time * speed).cos() * radius;
-                let z = (current_time * speed).sin() * radius;
-                obj.transform.position = Vec3::new(x, 0.0, z);
-            } else if let Some(i) = self.scene.capsule_ids.iter().position(|&id| id == obj.id) {
-                let tilt = 45.0f32.to_radians();
-                let tilt_quat = Quat::from_rotation_z(tilt);
-                let offset = i as f32 * std::f32::consts::PI;
-                let angle = current_time * 0.7 + offset;
-                let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
-                let tilted_pos = tilt_quat.mul_vec3(orbit_pos);
-
-                obj.transform.position = tilted_pos;
-                obj.transform.rotation =
-                    Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
-            } else if obj.id == self.scene.xwing_id {
-                // X-Wing: Slight oscillation
-                obj.transform.position.y = 50.0 + (current_time * 0.5).sin() * 2.0;
-            }
+            obj.update(current_time, delta_time);
         }
 
         // Update Point Lights based on statue positions
@@ -436,8 +406,42 @@ impl RenderMode for Game {
     fn render(&mut self) {
         self.renderer
             .render(&self.scene, &self.camera, &self.light, &self.point_lights);
-        self.ui_manager
-            .render(&self.scene, self.selected_object_id, self.is_paused);
+
+        // 1. Game Specific UI: Top Panel
+        self.ui_manager.text_renderer.render_rect(
+            &self.ui_manager.ui_rect_shader,
+            10.0,
+            660.0,
+            180.0,
+            50.0,
+            glam::Vec4::new(0.0, 0.0, 0.0, 0.5),
+            1280.0,
+            720.0,
+        );
+        self.ui_manager.text_renderer.render_text(
+            "Hakkology",
+            20.0,
+            665.0,
+            32.0,
+            Vec3::new(1.0, 1.0, 1.0),
+            1280.0,
+            720.0,
+        );
+
+        // 2. Game Specific UI: Pause Button
+        let mut pause_btn = self.pause_button.clone();
+        if self.is_paused {
+            pause_btn.text = "Resume".to_string();
+        }
+        pause_btn.draw(
+            &self.ui_manager.text_renderer,
+            &self.ui_manager.ui_rect_shader,
+            1280.0,
+            720.0,
+        );
+
+        // 3. Manager UI (Inspector)
+        self.ui_manager.render(&self.scene, self.selected_object_id);
     }
 
     fn handle_event(&mut self, event: &WindowEvent, time: &mut Time) {
@@ -447,7 +451,7 @@ impl RenderMode for Game {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
 
             // Pause Button
-            if self.ui_manager.pause_button.is_clicked(mx, my, 720.0) {
+            if self.pause_button.is_clicked(mx, my, 720.0) {
                 time.toggle_pause();
                 self.is_paused = time.is_paused;
                 return;

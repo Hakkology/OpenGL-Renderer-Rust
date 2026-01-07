@@ -37,44 +37,45 @@ impl AssetManager {
     }
 
     fn preprocess_shader(&self, source: &str) -> String {
-        let mut source = source.to_string();
-        
-        // 1. Inject MAX_POINT_LIGHTS
         let max_lights = crate::config::rendering::MAX_POINT_LIGHTS;
-        // Simple replace for standard definition
-        source = source.replace(
-            "#define NR_POINT_LIGHTS 4", 
-            &format!("#define NR_POINT_LIGHTS {}", max_lights)
+
+        // 1. Inject MAX_POINT_LIGHTS
+        let source = source.replace(
+            "#define NR_POINT_LIGHTS 4",
+            &format!("#define NR_POINT_LIGHTS {}", max_lights),
         );
 
-        // 2. Unroll Point Shadow Loop
+        // 2. Unroll Point Shadow Loop if placeholder exists
         if source.contains("{{POINT_SHADOW_LOOP}}") {
-            let mut loop_code = String::new();
-            
-            // Generate GLSL unrolled code
-            // We use standard for loop structure in generating the checks
-            loop_code.push_str("    // Generated Unrolled Point Shadow Loop\n");
-            loop_code.push_str("    for(int i = 0; i < nrPointLights; i++) {\n");
-            loop_code.push_str("        float pShadow = 0.0;\n");
-            loop_code.push_str("        if (u_UseShadows != 0) {\n");
-            loop_code.push_str("            vec3 lightToFrag = normalize(FragPos - pointLights[i].position);\n");
-            loop_code.push_str("            if (dot(norm, -lightToFrag) > 0.0) {\n");
-            
-            // The unrolling logic
-            for i in 0..max_lights {
-                if i == 0 {
-                    loop_code.push_str(&format!("                if (i == {}) pShadow = calcPointShadow(FragPos, pointLights[{}].position, pointShadowMaps[{}], 15.0);\n", i, i, i));
-                } else {
-                    loop_code.push_str(&format!("                else if (i == {}) pShadow = calcPointShadow(FragPos, pointLights[{}].position, pointShadowMaps[{}], 15.0);\n", i, i, i));
-                }
-            }
-            
-            loop_code.push_str("            }\n");
-            loop_code.push_str("        }\n");
-            loop_code.push_str("        result += calcPointLight(pointLights[i], norm, viewDir, pShadow);\n");
-            loop_code.push_str("    }\n");
+            let unrolled_checks = (0..max_lights)
+                .map(|i| {
+                    format!(
+                        "                {} (i == {}) pShadow = calcPointShadow(FragPos, pointLights[{}].position, pointShadowMaps[{}], 15.0);",
+                        if i == 0 { "if" } else { "else if" },
+                        i, i, i
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
 
-            source = source.replace("// {{POINT_SHADOW_LOOP}}", &loop_code);
+            let loop_code = format!(
+                r#"
+        // Generated Unrolled Point Shadow Loop
+        for(int i = 0; i < nrPointLights; i++) {{
+            float pShadow = 0.0;
+            if (u_UseShadows != 0) {{
+                vec3 lightToFrag = normalize(FragPos - pointLights[i].position);
+                if (dot(norm, -lightToFrag) > 0.0) {{
+{}
+                }}
+            }}
+            result += calcPointLight(pointLights[i], norm, viewDir, pShadow);
+        }}
+"#,
+                unrolled_checks
+            );
+
+            return source.replace("// {{POINT_SHADOW_LOOP}}", &loop_code);
         }
 
         source

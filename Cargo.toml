@@ -11,6 +11,7 @@ gl = "0.14.0"
 image = "0.24"
 glam = "0.30.9"
 rusttype = "0.9"
+russimp = "3.2.1"
 
 
 [build-dependencies]

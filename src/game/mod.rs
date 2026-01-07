@@ -16,6 +16,8 @@ use crate::ui::{Button, TextRenderer};
 use crate::ui::inspector::Inspector;
 use crate::math::ray::Ray;
 use crate::scene::collider::Collider;
+use crate::scene::model::Model;
+use crate::importer::AssetImporter;
 
 pub trait RenderMode {
     fn update(&mut self, time: &Time);
@@ -30,6 +32,7 @@ pub struct Game {
     orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
     capsules: Vec<SceneObject3D<Rc<Capsule>>>,
     floor: SceneObject3D<Rc<Plane>>,
+    trees: Vec<SceneObject3D<Rc<Model>>>,
     
     skybox: Skybox,
 
@@ -125,7 +128,7 @@ impl Game {
         let cube_mesh = Rc::new(Cube::new(1.0));
         let sphere_mesh = Rc::new(Sphere::new(0.6, 32, 32));
         let capsule_mesh = Rc::new(Capsule::new(0.4, 1.2, 32, 16, 16));
-        let plane_mesh = Rc::new(Plane::new(20.0));
+        let plane_mesh = Rc::new(Plane::new(80.0));
 
         // Create Materials
         let grass_material = Rc::new(TexturedMaterial {
@@ -188,8 +191,29 @@ impl Game {
 
         let mut floor = SceneObject3D::new(plane_mesh, grass_material.clone())
             .with_name("Floor")
-            .with_collider(Collider::new_box(Vec3::new(-10.0, -0.01, -10.0), Vec3::new(10.0, 0.01, 10.0)));
+            .with_collider(Collider::new_box(Vec3::new(-40.0, -0.01, -40.0), Vec3::new(40.0, 0.01, 40.0)));
         floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
+
+        // Load Trees
+        // Load Trees (Tree1 removed as requested)
+        let tree2_model = Rc::new(AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj").expect("Failed to load tree2"));
+        
+        let mut trees = Vec::new();
+        // Place 1 tree at the edge of the plane
+        let tree_positions = [
+            Vec3::new(-8.0, -4.0, -8.0),
+            Vec3::new(8.0, -4.0, 8.0),
+        ];
+
+        for (i, pos) in tree_positions.iter().enumerate() {
+            let mut tree = SceneObject3D::new(tree2_model.clone(), green_material.clone())
+                .with_name(&format!("Tree {}", i))
+                .with_collider(Collider::new_box(Vec3::new(-0.5, 0.0, -0.5), Vec3::new(0.5, 3.0, 0.5)));
+            
+            tree.transform.position = *pos;
+            tree.transform.scale = Vec3::splat(0.8); // Slightly smaller scale for consistency
+            trees.push(tree);
+        }
 
         Self {
             center_cube,
@@ -198,6 +222,7 @@ impl Game {
             orbiting_spheres,
             capsules,
             floor,
+            trees,
             
             skybox: Skybox::new(),
             ui_rect_shader,
@@ -260,6 +285,10 @@ impl Game {
             obj.render_depth(&self.shadow_map.shader);
         }
 
+        for obj in &self.trees {
+            obj.render_depth(&self.shadow_map.shader);
+        }
+
         self.shadow_map.end_pass(1280, 720);
     }
 
@@ -284,6 +313,10 @@ impl Game {
         }
         
         for obj in &self.capsules {
+            obj.render(&context);
+        }
+
+        for obj in &self.trees {
             obj.render(&context);
         }
     }
@@ -318,8 +351,9 @@ impl Game {
              else if self.floor.id == id { found = Some((&self.floor.name, self.floor.transform.position)); }
              else {
                  for obj in &self.orbiting_spheres { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } }
-                 if found.is_none() { for obj in &self.capsules { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
-             }
+                  if found.is_none() { for obj in &self.capsules { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
+                  if found.is_none() { for obj in &self.trees { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
+              }
 
              if let Some((name, pos)) = found {
                  self.inspector.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0, name, pos);
@@ -356,6 +390,7 @@ impl Game {
           else {
               for obj in &mut self.orbiting_spheres { if obj.id == id { obj.transform.position += delta; return; } }
               for obj in &mut self.capsules { if obj.id == id { obj.transform.position += delta; return; } }
+              for obj in &mut self.trees { if obj.id == id { obj.transform.position += delta; return; } }
           }
     }
 
@@ -395,6 +430,12 @@ impl Game {
              if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
                  check(dist, &p.name, p.id);
              }
+        }
+
+        for p in &self.trees {
+            if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
+                check(dist, &p.name, p.id);
+            }
         }
         
         if let Some((name, id)) = hit_object {

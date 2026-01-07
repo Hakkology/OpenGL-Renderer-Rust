@@ -75,6 +75,14 @@ impl Program {
         }
     }
 
+    pub fn set_vec2(&self, name: &str, x: f32, y: f32) {
+         let c_name = CString::new(name).unwrap();
+         unsafe {
+             let loc = gl::GetUniformLocation(self.id, c_name.as_ptr());
+             gl::Uniform2f(loc, x, y);
+         }
+    }
+
     pub fn set_vec3(&self, name: &str, x: f32, y: f32, z: f32) {
         unsafe {
             gl::Uniform3f(self.get_uniform_location(name), x, y, z);

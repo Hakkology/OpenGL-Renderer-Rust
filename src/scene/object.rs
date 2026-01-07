@@ -83,6 +83,7 @@ impl<T: Renderable> SceneObject3D<T> {
         shader.set_mat4("projection", &ctx.projection.to_cols_array());
         shader.set_mat4("view", &ctx.view.to_cols_array());
         shader.set_mat4("model", &self.transform.to_matrix().to_cols_array());
+        shader.set_vec3("u_Scale", self.transform.scale.x, self.transform.scale.y, self.transform.scale.z);
 
         // Toggles
         shader.set_int("u_UseLighting", if self.material.is_lit() { 1 } else { 0 });

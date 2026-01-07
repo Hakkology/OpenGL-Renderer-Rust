@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3, Quat};
+use glam::{Mat4, Vec2, Vec3, Quat};
 use glfw::{Action, WindowEvent};
 use std::rc::Rc;
 
@@ -32,6 +32,7 @@ pub struct Game {
     orbiting_spheres: Vec<SceneObject3D<Rc<Sphere>>>,
     capsules: Vec<SceneObject3D<Rc<Capsule>>>,
     floor: SceneObject3D<Rc<Plane>>,
+    walls: Vec<SceneObject3D<Rc<Cube>>>,
     trees: Vec<SceneObject3D<Rc<Model>>>,
     
     skybox: Skybox,
@@ -135,6 +136,9 @@ impl Game {
             shader: textured_shader.clone(),
             texture: texture.clone(),
             is_lit: true,
+            repeat_x: false,
+            repeat_y: false,
+            uv_scale: Vec2::ONE,
             receive_shadows: true,
         });
         
@@ -144,6 +148,9 @@ impl Game {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
             is_lit: true,
+            repeat_x: false,
+            repeat_y: false,
+            uv_scale: Vec2::ONE,
             receive_shadows: true,
         });
 
@@ -194,6 +201,71 @@ impl Game {
             .with_collider(Collider::new_box(Vec3::new(-40.0, -0.01, -40.0), Vec3::new(40.0, 0.01, 40.0)));
         floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
 
+        // Walls
+        let mut walls = Vec::new();
+        let wall_height = 8.0;
+        let plane_size = 80.0;
+        let half_size = plane_size / 2.0;
+        let wall_thickness = 1.0;
+
+        // Material for X-aligned walls (Length is along Z axis)
+        // User instruction: "-x walls should take repeat from z"
+        // Z-length is plane_size (80.0). Height is wall_height (8.0).
+        let wall_mat_x = Rc::new(TexturedMaterial {
+            shader: textured_shader.clone(),
+            texture: sphere_texture.clone(),
+            is_lit: true,
+            repeat_x: true,
+            repeat_y: true,
+            uv_scale: Vec2::new(wall_height, plane_size), // Swapped based on user feedback that X walls were wrong
+            receive_shadows: true,
+        });
+
+        // Material for Z-aligned walls (Length is along X axis)
+        // User instruction: "-z walls should take repeat from x"
+        // X-length is plane_size (80.0). Height is wall_height (8.0).
+        let wall_mat_z = Rc::new(TexturedMaterial {
+            shader: textured_shader.clone(),
+            texture: sphere_texture.clone(),
+            is_lit: true,
+            repeat_x: true,
+            repeat_y: true,
+            uv_scale: Vec2::new(plane_size, wall_height), // U follows X (80), V follows Y (8)
+            receive_shadows: true,
+        });
+
+        // +X Wall (Inner face normal is -X)
+        let mut w1 = SceneObject3D::new(cube_mesh.clone(), wall_mat_x.clone())
+            .with_name("Wall +X")
+            .with_collider(Collider::new_cube(1.0));
+        w1.transform.position = Vec3::new(half_size, -4.0 + wall_height / 2.0, 0.0);
+        w1.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
+        walls.push(w1);
+
+        // -X Wall (Inner face normal is +X)
+        let mut w2 = SceneObject3D::new(cube_mesh.clone(), wall_mat_x.clone())
+            .with_name("Wall -X")
+            .with_collider(Collider::new_cube(1.0));
+        w2.transform.position = Vec3::new(-half_size, -4.0 + wall_height / 2.0, 0.0);
+        w2.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
+        walls.push(w2);
+
+        // +Z Wall (Inner face normal is -Z)
+        let mut w3 = SceneObject3D::new(cube_mesh.clone(), wall_mat_z.clone())
+            .with_name("Wall +Z")
+            .with_collider(Collider::new_cube(1.0));
+        w3.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, half_size);
+        w3.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
+        walls.push(w3);
+
+        // -Z Wall (Inner face normal is +Z)
+        let mut w4 = SceneObject3D::new(cube_mesh.clone(), wall_mat_z.clone())
+            .with_name("Wall -Z")
+            .with_collider(Collider::new_cube(1.0));
+        w4.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, -half_size);
+        w4.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
+        walls.push(w4);
+
         // Load Trees
         // Load Trees (Tree1 removed as requested)
         let tree2_model = Rc::new(AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj").expect("Failed to load tree2"));
@@ -222,6 +294,7 @@ impl Game {
             orbiting_spheres,
             capsules,
             floor,
+            walls,
             trees,
             
             skybox: Skybox::new(),
@@ -285,6 +358,10 @@ impl Game {
             obj.render_depth(&self.shadow_map.shader);
         }
 
+        for obj in &self.walls {
+            obj.render_depth(&self.shadow_map.shader);
+        }
+
         for obj in &self.trees {
             obj.render_depth(&self.shadow_map.shader);
         }
@@ -313,6 +390,10 @@ impl Game {
         }
         
         for obj in &self.capsules {
+            obj.render(&context);
+        }
+
+        for obj in &self.walls {
             obj.render(&context);
         }
 
@@ -352,6 +433,7 @@ impl Game {
              else {
                  for obj in &self.orbiting_spheres { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } }
                   if found.is_none() { for obj in &self.capsules { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
+                  if found.is_none() { for obj in &self.walls { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
                   if found.is_none() { for obj in &self.trees { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
               }
 
@@ -377,6 +459,7 @@ impl Game {
         if let Some(dist) = self.floor.collider.as_ref().and_then(|c| c.intersect(ray, &self.floor.transform)) { check(dist, self.floor.id); }
         
         for obj in &self.orbiting_spheres { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
+        for obj in &self.walls { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
         for obj in &self.capsules { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
         
         hit_id
@@ -389,6 +472,7 @@ impl Game {
           else if self.floor.id == id { self.floor.transform.position += delta; }
           else {
               for obj in &mut self.orbiting_spheres { if obj.id == id { obj.transform.position += delta; return; } }
+              for obj in &mut self.walls { if obj.id == id { obj.transform.position += delta; return; } }
               for obj in &mut self.capsules { if obj.id == id { obj.transform.position += delta; return; } }
               for obj in &mut self.trees { if obj.id == id { obj.transform.position += delta; return; } }
           }
@@ -431,6 +515,12 @@ impl Game {
                  check(dist, &p.name, p.id);
              }
         }
+
+        for p in &self.walls {
+            if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
+                check(dist, &p.name, p.id);
+            }
+       }
 
         for p in &self.trees {
             if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {

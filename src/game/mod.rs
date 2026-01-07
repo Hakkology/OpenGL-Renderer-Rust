@@ -138,14 +138,14 @@ impl Game {
                 .with_name("Green Cube")
                 .with_collider(Collider::new_cube(1.0))
                 .with_controller(Box::new(RotationController::new(Vec3::Y, 1.0)));
-        green_cube.transform.position = Vec3::new(0.0, 2.0, 0.0);
+        green_cube.transform.translate(Vec3::new(0.0, 2.0, 0.0));
         scene.green_cube_id = scene.add_object(green_cube);
 
         let mut red_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), red_material.clone())
             .with_name("Red Cube")
             .with_collider(Collider::new_cube(1.0))
             .with_controller(Box::new(RotationController::new(Vec3::Y, -1.0)));
-        red_cube.transform.position = Vec3::new(0.0, -2.0, 0.0);
+        red_cube.transform.translate(Vec3::new(0.0, -2.0, 0.0));
         scene.red_cube_id = scene.add_object(red_cube);
 
         let configs = [(2.5, 1.2), (4.0, 0.8)];
@@ -184,7 +184,7 @@ impl Game {
                 Vec3::new(-40.0, -0.01, -40.0),
                 Vec3::new(40.0, 0.01, 40.0),
             ));
-        floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
+        floor.transform.translate(Vec3::new(0.0, -4.0, 0.0));
         scene.add_object(floor);
 
         // Walls
@@ -206,29 +206,37 @@ impl Game {
         let mut w1 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall +X")
             .with_collider(Collider::new_cube(1.0));
-        w1.transform.position = Vec3::new(half_size, -4.0 + wall_height / 2.0, 0.0);
-        w1.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
+        w1.transform
+            .translate(Vec3::new(half_size, -4.0 + wall_height / 2.0, 0.0));
+        w1.transform
+            .scale(Vec3::new(wall_thickness, wall_height, plane_size));
         scene.add_object(w1);
 
         let mut w2 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall -X")
             .with_collider(Collider::new_cube(1.0));
-        w2.transform.position = Vec3::new(-half_size, -4.0 + wall_height / 2.0, 0.0);
-        w2.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
+        w2.transform
+            .translate(Vec3::new(-half_size, -4.0 + wall_height / 2.0, 0.0));
+        w2.transform
+            .scale(Vec3::new(wall_thickness, wall_height, plane_size));
         scene.add_object(w2);
 
         let mut w3 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall +Z")
             .with_collider(Collider::new_cube(1.0));
-        w3.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, half_size);
-        w3.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
+        w3.transform
+            .translate(Vec3::new(0.0, -4.0 + wall_height / 2.0, half_size));
+        w3.transform
+            .scale(Vec3::new(plane_size, wall_height, wall_thickness));
         scene.add_object(w3);
 
         let mut w4 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall -Z")
             .with_collider(Collider::new_cube(1.0));
-        w4.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, -half_size);
-        w4.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
+        w4.transform
+            .translate(Vec3::new(0.0, -4.0 + wall_height / 2.0, -half_size));
+        w4.transform
+            .scale(Vec3::new(plane_size, wall_height, wall_thickness));
         scene.add_object(w4);
 
         for (i, pos) in [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)]
@@ -242,8 +250,8 @@ impl Game {
                         Vec3::new(-0.5, 0.0, -0.5),
                         Vec3::new(0.5, 3.0, 0.5),
                     ));
-            tree.transform.position = *pos;
-            tree.transform.scale = Vec3::splat(0.8);
+            tree.transform.translate(*pos);
+            tree.transform.scale(Vec3::splat(0.8));
             scene.add_object(tree);
         }
 
@@ -251,8 +259,8 @@ impl Game {
             .with_name("X-Wing")
             .with_collider(Collider::new_sphere(2.0))
             .with_controller(Box::new(OscillationController::new(50.0, 2.0, 0.5)));
-        xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
-        xwing.transform.scale = Vec3::splat(1.0);
+        xwing.transform.translate(Vec3::new(0.0, 50.0, 10.0));
+        xwing.transform.scale(Vec3::splat(1.0));
         scene.xwing_id = scene.add_object(xwing);
 
         let statue_configs = [
@@ -266,10 +274,12 @@ impl Game {
             let mut s = SceneObject3D::new(Box::new(statue_model.clone()), grey_material.clone())
                 .with_name(&format!("Statue {}", i))
                 .with_collider(Collider::new_sphere(500.0));
-            s.transform.position = *pos;
-            s.transform.scale = Vec3::splat(0.01);
-            s.transform.rotation = Quat::from_rotation_y(yaw_deg.to_radians())
-                * Quat::from_rotation_x(-90.0f32.to_radians());
+            s.transform.translate(*pos);
+            s.transform.scale(Vec3::splat(0.01));
+            s.transform.rotate(
+                Quat::from_rotation_y(yaw_deg.to_radians())
+                    * Quat::from_rotation_x(-90.0f32.to_radians()),
+            );
             scene.statue_ids.push(s.id);
             scene.add_object(s);
         }
@@ -315,7 +325,7 @@ impl Game {
 
     fn apply_transform_delta(&mut self, id: usize, delta: Vec3) {
         if let Some(obj) = self.scene.get_object_mut(id) {
-            obj.transform.position += delta;
+            obj.transform.translate(delta);
         }
     }
 

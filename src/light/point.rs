@@ -1,7 +1,7 @@
-use glam::Vec3;
-use crate::shaders::Shader;
-use super::components::{LightProperties, Attenuation};
+use super::components::{Attenuation, LightProperties};
 use super::Light;
+use crate::shaders::Shader;
+use glam::Vec3;
 
 pub struct PointLight {
     pub position: Vec3,
@@ -23,14 +23,43 @@ impl PointLight {
         self
     }
 
-    pub fn simple(position: Vec3, ambient: f32, diffuse: f32, specular: f32, shininess: f32) -> Self {
-        Self::new(position, LightProperties::new(ambient, diffuse, specular, shininess))
+    pub fn simple(
+        position: Vec3,
+        ambient: f32,
+        diffuse: f32,
+        specular: f32,
+        shininess: f32,
+    ) -> Self {
+        Self::new(
+            position,
+            LightProperties::new(ambient, diffuse, specular, shininess),
+        )
+    }
+    pub fn apply_to_shader_indexed(&self, shader: &Shader, index: usize, view_pos: Vec3) {
+        let prefix = format!("pointLights[{}]", index);
+        // Note: Shader expects "pointLights[i].position"
+        shader.set_vec3(
+            &format!("{}.position", prefix),
+            self.position.x,
+            self.position.y,
+            self.position.z,
+        );
+        // Properties uses "{prefix}Ambient", so passing "{prefix}." gives "pointLights[i].Ambient"
+        let prop_prefix = format!("{}.", prefix);
+        self.properties.apply_to_shader(shader, &prop_prefix);
+        self.attenuation.apply_to_shader(shader, &prop_prefix);
+        shader.set_vec3("viewPos", view_pos.x, view_pos.y, view_pos.z);
     }
 }
 
 impl Light for PointLight {
     fn apply_to_shader(&self, shader: &Shader, view_pos: Vec3) {
-        shader.set_vec3("pointLightPos", self.position.x, self.position.y, self.position.z);
+        shader.set_vec3(
+            "pointLightPos",
+            self.position.x,
+            self.position.y,
+            self.position.z,
+        );
         self.properties.apply_to_shader(shader, "point");
         self.attenuation.apply_to_shader(shader, "point");
         shader.set_vec3("viewPos", view_pos.x, view_pos.y, view_pos.z);

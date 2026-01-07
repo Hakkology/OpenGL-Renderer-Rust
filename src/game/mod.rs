@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::camera::OrbitCamera;
 use crate::importer::AssetImporter;
 use crate::input::Input;
-use crate::light::{DirectionalLight, Light, PointLight};
+use crate::light::{components::LightProperties, DirectionalLight, Light, PointLight};
 use crate::math::ray::Ray;
 use crate::primitives::{Capsule, Cube, Plane, Skybox, Sphere};
 use crate::scene::collider::Collider;
@@ -35,7 +35,7 @@ pub struct Game {
     walls: Vec<SceneObject3D<Rc<Cube>>>,
     trees: Vec<SceneObject3D<Rc<Model>>>,
     xwing: SceneObject3D<Rc<Model>>,
-    statue: SceneObject3D<Rc<Model>>,
+    statues: Vec<SceneObject3D<Rc<Model>>>,
 
     skybox: Skybox,
 
@@ -56,7 +56,7 @@ pub struct Game {
 
     // Lights
     light: DirectionalLight,
-    point_light: PointLight,
+    point_lights: Vec<PointLight>,
 
     // State
     light_space_matrix: Mat4,
@@ -220,27 +220,21 @@ impl Game {
         let half_size = plane_size / 2.0;
         let wall_thickness = 1.0;
 
-        // Material for X-aligned walls (Length is along Z axis)
-        // User instruction: "-x walls should take repeat from z"
-        // Z-length is plane_size (80.0). Height is wall_height (8.0).
         let wall_mat_x = Rc::new(TexturedMaterial {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
             is_lit: true,
             is_repeated: true,
-            uv_scale: Vec2::new(wall_height / 8.0, plane_size / 8.0), // Swapped based on user feedback that X walls were wrong
+            uv_scale: Vec2::new(wall_height / 8.0, plane_size / 8.0),
             receive_shadows: true,
         });
 
-        // Material for Z-aligned walls (Length is along X axis)
-        // User instruction: "-z walls should take repeat from x"
-        // X-length is plane_size (80.0). Height is wall_height (8.0).
         let wall_mat_z = Rc::new(TexturedMaterial {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
             is_lit: true,
             is_repeated: true,
-            uv_scale: Vec2::new(plane_size / 8.0, wall_height / 8.0), // U follows X (80), V follows Y (8)
+            uv_scale: Vec2::new(plane_size / 8.0, wall_height / 8.0),
             receive_shadows: true,
         });
 
@@ -277,7 +271,6 @@ impl Game {
         walls.push(w4);
 
         // Load Trees
-        // Load Trees (Tree1 removed as requested)
         let tree2_model = Rc::new(
             AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj")
                 .expect("Failed to load tree2"),
@@ -325,13 +318,41 @@ impl Game {
                 .expect("Failed to load statue"),
         );
 
-        let mut statue = SceneObject3D::new(statue_model.clone(), grey_material.clone())
-            .with_name("Statue")
-            .with_collider(Collider::new_sphere(5.0));
-        statue.transform.position = Vec3::new(0.0, 0.0, 20.0);
-        statue.transform.scale = Vec3::splat(0.01);
-        statue.transform.rotation = Quat::from_rotation_y(180.0f32.to_radians())
-            * Quat::from_rotation_x(-90.0f32.to_radians());
+        let mut statues = Vec::new();
+        let statue_configs = [
+            (Vec3::new(0.0, -5.0, 20.0), 180.0f32), // +Z, facing -Z (180 deg Y)
+            (Vec3::new(0.0, -5.0, -20.0), 0.0f32),  // -Z, facing +Z (0 deg Y)
+            (Vec3::new(20.0, -5.0, 0.0), 90.0f32),  // +X, facing -X (90 deg Y)
+            (Vec3::new(-20.0, -5.0, 0.0), -90.0f32), // -X, facing +X (-90 deg Y)
+        ];
+
+        for (i, (pos, yaw_deg)) in statue_configs.iter().enumerate() {
+            let mut s = SceneObject3D::new(statue_model.clone(), grey_material.clone())
+                .with_name(&format!("Statue {}", i))
+                .with_collider(Collider::new_sphere(500.0));
+            s.transform.position = *pos;
+            s.transform.scale = Vec3::splat(0.01);
+            // Combined rotation: Yaw to face center * Fix model orientation (-90 X)
+            s.transform.rotation = Quat::from_rotation_y(yaw_deg.to_radians())
+                * Quat::from_rotation_x(-90.0f32.to_radians());
+            statues.push(s);
+        }
+
+        // Initialize 4 Point Lights
+        let mut point_lights = Vec::new();
+        let colors = [
+            Vec3::new(1.0, 0.0, 0.0), // Red
+            Vec3::new(0.0, 1.0, 0.0), // Green
+            Vec3::new(0.0, 0.0, 1.0), // Blue
+            Vec3::new(1.0, 0.5, 0.0), // Orange
+        ];
+
+        for i in 0..4 {
+            point_lights.push(PointLight::new(
+                Vec3::ZERO, // Position will be updated in update loop
+                LightProperties::new(0.05, 0.8, 1.0, 55.0).with_color(colors[i % 4]),
+            ));
+        }
 
         Self {
             center_cube,
@@ -343,7 +364,7 @@ impl Game {
             walls,
             trees,
             xwing,
-            statue,
+            statues,
 
             skybox: Skybox::new(),
             ui_rect_shader,
@@ -357,21 +378,12 @@ impl Game {
             camera: OrbitCamera::new(),
             shadow_map,
             light,
-            point_light: PointLight::simple(Vec3::new(3.0, 3.0, 3.0), 0.05, 0.8, 1.0, 32.0),
 
+            point_lights,
             light_space_matrix: Mat4::IDENTITY,
             selected_object_id: None,
             inspector: Inspector::new(1070.0, 500.0),
         }
-    }
-
-    fn apply_lights(&self, shader: &Shader) {
-        self.light.apply_to_shader(shader, self.camera.position);
-        self.point_light
-            .apply_to_shader(shader, self.camera.position);
-        shader.set_mat4("lightSpaceMatrix", &self.light_space_matrix.to_cols_array());
-        self.shadow_map.bind_shadow_map(5);
-        shader.set_int("shadowMap", 5);
     }
 
     fn render_skybox(&self, projection: &Mat4) {
@@ -413,7 +425,9 @@ impl Game {
         }
 
         self.xwing.render_depth(&self.shadow_map.shader);
-        self.statue.render_depth(&self.shadow_map.shader);
+        for s in &self.statues {
+            s.render_depth(&self.shadow_map.shader);
+        }
         self.shadow_map.end_pass(1280, 720);
     }
 
@@ -423,7 +437,7 @@ impl Game {
             view: *view,
             view_pos: self.camera.position,
             light: &self.light,
-            point_light: &self.point_light,
+            point_lights: &self.point_lights,
             shadow_map: &self.shadow_map,
             light_space_matrix: self.light_space_matrix,
         };
@@ -449,7 +463,9 @@ impl Game {
             obj.render(&context);
         }
         self.xwing.render(&context);
-        self.statue.render(&context);
+        for s in &self.statues {
+            s.render(&context);
+        }
     }
 
     fn render_ui(&self) {
@@ -519,6 +535,14 @@ impl Game {
                 if found.is_none() && self.xwing.id == id {
                     found = Some((&self.xwing.name, self.xwing.transform.position));
                 }
+                if found.is_none() {
+                    for obj in &self.statues {
+                        if obj.id == id {
+                            found = Some((&obj.name, obj.transform.position));
+                            break;
+                        }
+                    }
+                }
             }
 
             if let Some((name, pos)) = found {
@@ -577,6 +601,16 @@ impl Game {
             check(dist, self.floor.id);
         }
 
+        for obj in &self.trees {
+            if let Some(dist) = obj
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &obj.transform))
+            {
+                check(dist, obj.id);
+            }
+        }
+
         for obj in &self.orbiting_spheres {
             if let Some(dist) = obj
                 .collider
@@ -611,6 +645,16 @@ impl Game {
             .and_then(|c| c.intersect(ray, &self.xwing.transform))
         {
             check(dist, self.xwing.id);
+        }
+
+        for obj in &self.statues {
+            if let Some(dist) = obj
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &obj.transform))
+            {
+                check(dist, obj.id);
+            }
         }
 
         hit_id
@@ -653,6 +697,12 @@ impl Game {
             if self.xwing.id == id {
                 self.xwing.transform.position += delta;
                 return;
+            }
+            for obj in &mut self.statues {
+                if obj.id == id {
+                    obj.transform.position += delta;
+                    return;
+                }
             }
         }
     }
@@ -751,6 +801,16 @@ impl Game {
             check(dist, &self.xwing.name, self.xwing.id);
         }
 
+        for p in &self.statues {
+            if let Some(dist) = p
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &p.transform))
+            {
+                check(dist, &p.name, p.id);
+            }
+        }
+
         if let Some((name, id)) = hit_object {
             println!(
                 "Raycast Hit: '{}' (ID: {}) at distance {:.2}",
@@ -814,16 +874,23 @@ impl RenderMode for Game {
                 Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
         }
 
-        // X-Wing Orbit Logic
-        let xw_radius = 8.0;
-        let xw_speed = 0.5;
-        let xw_angle = current_time * xw_speed;
-        let xw_x = xw_angle.cos() * xw_radius;
-        let xw_z = xw_angle.sin() * xw_radius;
-        self.xwing.transform.position = Vec3::new(xw_x, 0.0, xw_z);
-        let bank = 30.0f32.to_radians();
-        self.xwing.transform.rotation =
-            Quat::from_rotation_y(-xw_angle) * Quat::from_rotation_z(bank);
+        // Statue Orbiting Light Logic (4 lights around 4 statues)
+        for i in 0..4 {
+            if i >= self.statues.len() || i >= self.point_lights.len() {
+                break;
+            }
+
+            let statue_pos = self.statues[i].transform.position;
+            let light_radius = 2.0;
+            let light_speed = 1.0;
+            let light_angle = current_time * light_speed + (i as f32 * std::f32::consts::PI / 2.0); // Offset phases
+
+            let light_x = statue_pos.x + light_angle.cos() * light_radius;
+            let light_z = statue_pos.z + light_angle.sin() * light_radius;
+            let light_y = statue_pos.y + 5.0;
+
+            self.point_lights[i].position = Vec3::new(light_x, light_y, light_z);
+        }
     }
 
     fn render(&mut self) {

@@ -14,16 +14,20 @@ uniform float diffuseStrength;
 uniform float specularStrength;
 uniform float shininess;
 
-// Point Light
-uniform vec3 pointLightPos;
-uniform vec3 pointColor;
-uniform float pointAmbient;
-uniform float pointDiffuse;
-uniform float pointSpecular;
-uniform float pointShininess;
-uniform float pointConstant;
-uniform float pointLinear;
-uniform float pointQuadratic;
+// Point Lights
+struct PointLight {
+    vec3 position;
+    vec3 Color;
+    float Ambient;
+    float Diffuse;
+    float Specular;
+    float Shininess;
+    float Constant;
+    float Linear;
+    float Quadratic;
+};
+#define NR_POINT_LIGHTS 4
+uniform PointLight pointLights[NR_POINT_LIGHTS];
 
 uniform vec3 viewPos;
 uniform sampler2D u_Texture;
@@ -69,17 +73,17 @@ vec3 calcDirLight(vec3 norm, vec3 viewDir, float shadow) {
     return ambient + (1.0 - shadow) * (diffuse + specular);
 }
 
-vec3 calcPointLight(vec3 norm, vec3 viewDir) {
-    vec3 lightDirNorm = normalize(pointLightPos - FragPos);
+vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir) {
+    vec3 lightDirNorm = normalize(light.position - FragPos);
     float diff = max(dot(norm, lightDirNorm), 0.0);
     vec3 reflectDir = reflect(-lightDirNorm, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), pointShininess);
-    float distance = length(pointLightPos - FragPos);
-    float attenuation = 1.0 / (pointConstant + pointLinear * distance + pointQuadratic * distance * distance);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), light.Shininess);
+    float distance = length(light.position - FragPos);
+    float attenuation = 1.0 / (light.Constant + light.Linear * distance + light.Quadratic * distance * distance);
 
-    vec3 ambient = pointAmbient * pointColor * attenuation;
-    vec3 diffuse = pointDiffuse * diff * pointColor * attenuation;
-    vec3 specular = pointSpecular * spec * pointColor * attenuation;
+    vec3 ambient = light.Ambient * light.Color * attenuation;
+    vec3 diffuse = light.Diffuse * diff * light.Color * attenuation;
+    vec3 specular = light.Specular * spec * light.Color * attenuation;
     return ambient + diffuse + specular;
 }
 
@@ -113,7 +117,9 @@ void main() {
         }
 
         result = calcDirLight(norm, viewDir, shadow);
-        result += calcPointLight(norm, viewDir);
+        // result += calcPointLight(norm, viewDir);
+        for(int i = 0; i < NR_POINT_LIGHTS; i++)
+            result += calcPointLight(pointLights[i], norm, viewDir);
     }
     
     result *= texColor.rgb;

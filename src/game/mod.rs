@@ -35,6 +35,7 @@ pub struct Game {
     walls: Vec<SceneObject3D<Rc<Cube>>>,
     trees: Vec<SceneObject3D<Rc<Model>>>,
     xwing: SceneObject3D<Rc<Model>>,
+    statue: SceneObject3D<Rc<Model>>,
 
     skybox: Skybox,
 
@@ -318,6 +319,20 @@ impl Game {
         xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
         xwing.transform.scale = Vec3::splat(1.0);
 
+        // Load Statue
+        let statue_model = Rc::new(
+            AssetImporter::load_model("assets/resources/models/Statue/12334_statue_v1_l3.obj")
+                .expect("Failed to load statue"),
+        );
+
+        let mut statue = SceneObject3D::new(statue_model.clone(), grey_material.clone())
+            .with_name("Statue")
+            .with_collider(Collider::new_sphere(5.0));
+        statue.transform.position = Vec3::new(0.0, 0.0, 20.0);
+        statue.transform.scale = Vec3::splat(0.01);
+        statue.transform.rotation = Quat::from_rotation_y(180.0f32.to_radians())
+            * Quat::from_rotation_x(-90.0f32.to_radians());
+
         Self {
             center_cube,
             green_cube,
@@ -328,6 +343,7 @@ impl Game {
             walls,
             trees,
             xwing,
+            statue,
 
             skybox: Skybox::new(),
             ui_rect_shader,
@@ -397,6 +413,7 @@ impl Game {
         }
 
         self.xwing.render_depth(&self.shadow_map.shader);
+        self.statue.render_depth(&self.shadow_map.shader);
         self.shadow_map.end_pass(1280, 720);
     }
 
@@ -432,6 +449,7 @@ impl Game {
             obj.render(&context);
         }
         self.xwing.render(&context);
+        self.statue.render(&context);
     }
 
     fn render_ui(&self) {

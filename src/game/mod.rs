@@ -127,7 +127,7 @@ impl Game {
         let shadow_map = ShadowMap::new(2048, 2048);
         println!("Shadow map initialized.");
 
-        let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.5, 1.0, 32.0);
+        let light = DirectionalLight::simple(Vec3::new(-0.2, -1.0, -0.3), 0.1, 0.3, 1.0, 32.0);
 
         // Create Shared Meshes
         let cube_mesh = Rc::new(Cube::new(1.0));
@@ -145,8 +145,6 @@ impl Game {
             receive_shadows: true,
         });
 
-        // Stone material - Let's make it receive no shadows as a test/demo?
-        // No, user just wants the ABILITY. Let's keep defaults but exposing them.
         let stone_material = Rc::new(TexturedMaterial {
             shader: textured_shader.clone(),
             texture: sphere_texture.clone(),
@@ -163,9 +161,6 @@ impl Game {
             receive_shadows: true,
         });
 
-        // Red material - Unlit demo?
-        // Let's make the red cube Unlit for demonstration if user wants.
-        // But for now let's set them all enabled.
         let red_material = Rc::new(ColoredMaterial {
             shader: colored_shader.clone(),
             color: Vec3::new(1.0, 0.0, 0.0),

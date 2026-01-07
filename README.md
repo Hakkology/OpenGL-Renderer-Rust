@@ -1,111 +1,120 @@
-# OpenGL Renderer in Rust 🦀
+# Hakkology OpenGL Engine (Rust) 🦀
 
-A high-performance, modular 3D rendering engine built with **Rust** and **OpenGL 3.3+**. This project demonstrates advanced graphics programming concepts including dynamic lighting, shadow mapping, model loading, and a custom UI system, all architected with Rust's safety and performance in mind.
+![Status](https://img.shields.io/badge/Status-Active-success)
+![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange)
+![OpenGL](https://img.shields.io/badge/OpenGL-3.3%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-![OpenGL Renderer](https://via.placeholder.com/1280x720?text=OpenGL+Renderer+Screenshot)
+![OpenGL Renderer](assets/resources/project/rust%20open%20gl%20screenshot.png)
 
-## ✨ Features
+A high-performance, modular 3D rendering engine built from scratch in Rust using modern OpenGL. This project serves as a showcase of advanced graphics programming techniques, including real-time dynamic lighting, shadow mapping, and a custom ECS-inspired scene architecture.
 
-### 🎨 Rendering & Graphics
-*   **Modern OpenGL (Core Profile):** Uses strict OpenGL 3.3+ core profile functions via the `gl` crate.
-*   **Phong Lighting Model:** 
-    *   **Directional Light:** Simulates sun-like global lighting.
-    *   **Point Lights:** Multiple colored point lights with attenuation (distance fade).
-    *   **Material System:** Supports colored and textured materials with configurable ambient, diffuse, and specular properties.
-*   **Advanced Shadows:**
-    *   **Directional Shadows:** High-res shadow mapping for the main light source.
-    *   **Omnidirectional Shadows:** Point light shadows using Cubemaps and Geometry Shaders.
-    *   **PCF (Percentage-Closer Filtering):** Soft shadow edges for a realistic look.
-*   **Skybox:** High-quality cubemap skybox background.
-*   **Texture Mapping:** Support for diffuse maps, repeating textures, and UV scaling.
+## 🌟 Key Features
 
-### 🏗️ Engine Architecture
-*   **Scene Graph System:** Hierarchical object management with `SceneObject3D`.
-*   **Component-Based Logic:** Flexible `Controller` trait for adding behaviors (e.g., `OrbitController`, `RotationController`, `FloatingController`).
-*   **Asset Management:** Centralized `AssetManager` for caching and loading shaders, textures, and models.
-*   **Model Loading:** Robust model importer using `russimp` (Assimp bindings) supporting **OBJ, FBX**, and other formats with automatic triangulation and UV flipping.
-*   **Generic Primitive Shapes:** Built-in generators for Cube, Sphere, Plane, Capsule, and quad primitives.
+### 🎨 Advanced Rendering Pipeline
+*   **Dynamic Lighting System**:
+    *   **Directional Lights**: Simulates sun/moon light with parallel rays.
+    *   **Point Lights**: Omnidirectional lights with quadratic attenuation (e.g., light bulbs, fire).
+    *   **Spot Lights**: Cone-shaped lights with soft edges (flashlight effect).
+*   **High-Fidelity Shadows**:
+    *   **Directional Shadows**: Implemented using high-res depth maps and **PCF (Percentage-Closer Filtering)** 3x3 sampling for soft shadow edges.
+    *   **Omnidirectional Shadows**: Point lights cast shadows in all directions using **Dynamic Geometry Shader Cubemaps**.
+*   **Material System**:
+    *   **Blinn-Phong Shading**: Realistic specular highlights.
+    *   **Texture Support**: Diffuse maps, UV tiling, and scaling.
+    *   **Materials**: Support for `Gold`, `Emerald`, `Obsidian`, etc., via a preset factory.
+*   **Skybox**: Seamless cubemap rendering for immersive backgrounds.
 
-### 🖥️ User Interface (UI)
-*   **Custom 2D Renderer:** Orthographic projection based UI rendering integrated into the 3D pipeline.
-*   **Text Rendering:** High-quality text rendering using `rusttype`.
-*   **Interactive Widgets:** 
-    *   **Inspector Panel:** Real-time modification of object transforms (Position, Rotation, Scale).
-    *   **Buttons:** Interactive UI elements (e.g., Pause/Resume).
-    *   **Raycasting:** 3D object selection by clicking on the scene.
+### 🏗 Engine Architecture
+*   **Asset Management**: 
+    *   Resource counting references (`Rc`) for efficient memory usage.
+    *   Automatic caching of Shaders, Textures, and Models (OBJ) to prevent duplicate loading.
+*   **Scene Graph**:
+    *   **Transform Hierarchy**: Position, Rotation (Quaternions), and Scale.
+    *   **Component System**: Objects can have attached `Colliders`, `Controllers` (scripts), and `Materials`.
+*   **Input Handling**:
+    *   Event-driven input system wrapping `GLFW` events.
+    *   Raycasting for 3D object selection from screen space.
 
-### 🎥 Camera System
-*   **Orbit Camera:** Maya/Unity-style camera controls.
-*   **Zoom & Pan:** Smooth zooming with mouse scroll and dynamic distance calculation.
+### 🎮 Interactive Elements
+*   **Orbit Camera**: Professional CAD-like camera controls (Pan, Zoom, Orbit).
+*   **Physics Lite**: Simple AABB and Sphere collision primitives.
+*   **UI System**: Custom text rendering engine and batch-rendered 2D UI elements (buttons, panels).
+*   **Logic Controllers**:
+    *   `OrbitController`: For planetary motion.
+    *   `FloatingController`: For "breathing" idle animations.
+    *   `RotationController`: For constant spinning objects.
+
+## 🛠 Project Structure
+
+The codebase is organized into modular distinct crates/modules:
+
+```bash
+src/
+├── assets/         # Asset Manager (Loaders for OBJ, PNG, GLSL)
+├── config.rs       # Global Configuration (Window size, Light limits, Constants)
+├── game/           # Core Game Loop & Scene Composition
+├── input/          # Input State Management
+├── light/          # Light Components (Directional, Point, Spot)
+├── logic/          # Game Logic & Object Behaviours (Controllers)
+├── math/           # Raycasting & Math Utilities
+├── primitives/     # Procedural Mesh Generation (Cube, Sphere, Capsule, Plane)
+├── renderer/       # Render Passes (Shadow Pass, Geometry Pass, Skybox Pass)
+├── scene/          # Scene Graph, Objects, Materials
+├── shaders/        # GLSL Shader Compilation & Linking
+├── shapes/         # 2D Shapes
+├── ui/             # User Interface (Text, Buttons)
+└── window/         # Window Creation & Context Management
+```
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-1.  **Rust Toolchain:** Ensure you have Rust installed.
-    ```sh
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-    ```
-2.  **C/C++ Build Tools:** Required for compiling dependencies like `glfw-sys` and `russimp`.
-    *   **Windows:** Visual Studio with C++ Desktop Development workload.
-    *   **Linux:** `build-essential`, `cmake`, `libclang-dev`.
-3.  **CMake:** Required for building `russimp`.
+1.  **Rust Toolchain**: [Install Rust](https://www.rust-lang.org/tools/install)
+2.  **C Compiler**: Required for compiling `glfw-sys`.
+    *   *Windows*: Install Visual Studio C++ Build Tools.
+    *   *Linux*: `sudo apt install build-essential cmake`
+3.  **CMake**: Required for building GLFW.
+    *   *Windows*: [Download CMake](https://cmake.org/download/) and add to PATH.
 
-### Installation
+### Installation & Run
 
 1.  Clone the repository:
-    ```sh
-    git clone https://github.com/yourusername/opengl-renderer-rust.git
-    cd opengl-renderer-rust
+    ```bash
+    git clone https://github.com/Hakkology/OpenGL-Renderer-Rust.git
+    cd OpenGL-Renderer-Rust
     ```
 
-2.  Build the project (this may take a few minutes as it compiles dependencies):
-    ```sh
-    cargo build --release
-    ```
-
-3.  Run the application:
-    ```sh
+2.  Run in release mode for best performance:
+    ```bash
     cargo run --release
     ```
 
-## 🎮 Controls
+> **Note**: First compilation might take a few minutes as it compiles dependencies like `glfw` and `image` crates.
 
-| Interaction | Action |
-|-------------|--------|
-| **Left Click + Drag** | Rotate Camera (Orbital) |
-| **Mouse Scroll** | Zoom In / Out |
-| **Shift + WASD** | Move Camera Focus Point (Pan) |
-| **Left Click (on Object)** | Select Object (appears in Inspector) |
-| **Inspector Panel** | Use `+` / `-` buttons to move selected object |
-| **Pause Button** | Pause/Resume object animations |
-| **ESC** | Close Application |
+## 🎮 Controls & Interactions
 
-## 📂 Project Structure
+| Context | Input | Action |
+|:-------:|:-----:|:-------|
+| **Camera** | **LMB + Drag** | Orbit around the center |
+| **Camera** | **Scroll** | Zoom In / Out |
+| **Interaction** | **LMB Click** | Select Object (Raycast) |
+| **Interaction** | **Pause Button** | Pause/Resume Object Animations |
+| **System** | **Esc** | Close Application |
 
-*   `src/main.rs`: Entry point. Initializes the Window and Application loop.
-*   `src/game/`: Contains the main game logic (`Game` struct), scene setup, and loop handling.
-*   `src/renderer/`: Core rendering logic, shadow passes, and forward rendering pipeline.
-*   `src/scene/`: Data structures for Scene, Objects, Materials, and Colliders.
-*   `src/shaders/`: GLSL shader loading and program management.
-*   `src/assets/`: Asset manager and path constants.
-*   `src/importer/`: Model loading implementation (FBX/OBJ via Assimp).
-*   `src/ui/`: UI system, Button, Inspector, and Text Rendering logic.
-*   `src/input/`: Keyboard and Mouse input handling.
-*   `assets/`: Directory containing shaders (`.vert`, `.frag`), models, and textures.
+## 🧩 Modding & Configuration
 
-## 🛠️ Built With
+You can tweak engine parameters in `src/config.rs` without touching core logic:
 
-*   [**gl**](https://crates.io/crates/gl): OpenGL function pointers.
-*   [**glfw**](https://crates.io/crates/glfw): Window creation and input handling.
-*   [**glam**](https://crates.io/crates/glam): Fast linear algebra (vectors, matrices).
-*   [**russimp**](https://crates.io/crates/russimp): Rust bindings for the Assimp library (Asset Import).
-*   [**image**](https://crates.io/crates/image): Loading texture images.
-*   [**rusttype**](https://crates.io/crates/rusttype): Font loading and text rendering.
+*   **`window`**: Resolution, Title, VSync.
+*   **`camera`**: FOV, Sensitivity, Zoom Limits.
+*   **`rendering`**: Shadow Map Resolution (Default: 2048), Max Lights.
 
-## 📜 License
+## � License
 
-This project is open-source and available under the **MIT License**.
+This project is licensed under the [MIT License](LICENSE).
 
 ---
-*Created with ❤️ in Rust*
+
+*Built with ❤️ by Hakkology & Antigravity AI*

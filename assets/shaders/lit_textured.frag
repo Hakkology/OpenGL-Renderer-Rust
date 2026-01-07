@@ -144,10 +144,19 @@ void main() {
     } else {
         vec3 norm = normalize(Normal);
         vec3 viewDir = normalize(viewPos - FragPos);
+        
+        // Two-sided lighting: Ensure normal always faces the camera
+        if (dot(norm, viewDir) < 0.0) {
+            norm = -norm;
+        }
         vec3 lightDirNorm = normalize(-lightDir);
         
+        // Calculate if surface faces the light (optimization)
+        float NdotL = dot(norm, lightDirNorm);
+        
         float shadow = 0.0;
-        if (u_UseShadows != 0) {
+        if (u_UseShadows != 0 && NdotL > 0.0) {
+            // Only calculate shadow if surface faces the light
             shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
         }
 
@@ -156,8 +165,12 @@ void main() {
         for(int i = 0; i < NR_POINT_LIGHTS; i++) {
             float pShadow = 0.0;
             if (u_UseShadows != 0) {
-                // High Optimization: Skip if beyond hard range, and use very few samples
-                pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i], 15.0);
+                // Check if surface faces this point light
+                vec3 lightToFrag = normalize(FragPos - pointLights[i].position);
+                float pNdotL = dot(norm, -lightToFrag);
+                if (pNdotL > 0.0) {
+                    pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i], 15.0);
+                }
             }
             result += calcPointLight(pointLights[i], norm, viewDir, pShadow);
         }

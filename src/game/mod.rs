@@ -315,10 +315,10 @@ impl Game {
 
         let mut statues = Vec::new();
         let statue_configs = [
-            (Vec3::new(0.0, -5.0, 20.0), 180.0f32), // +Z, facing -Z (180 deg Y)
-            (Vec3::new(0.0, -5.0, -20.0), 0.0f32),  // -Z, facing +Z (0 deg Y)
-            (Vec3::new(20.0, -5.0, 0.0), 90.0f32),  // +X, facing -X (90 deg Y)
-            (Vec3::new(-20.0, -5.0, 0.0), -90.0f32), // -X, facing +X (-90 deg Y)
+            (Vec3::new(0.0, -3.9, 20.0), 180.0f32), // +Z, facing -Z (180 deg Y)
+            (Vec3::new(0.0, -3.9, -20.0), 0.0f32),  // -Z, facing +Z (0 deg Y)
+            (Vec3::new(20.0, -3.9, 0.0), 90.0f32),  // +X, facing -X (90 deg Y)
+            (Vec3::new(-20.0, -3.9, 0.0), -90.0f32), // -X, facing +X (-90 deg Y)
         ];
 
         for (i, (pos, yaw_deg)) in statue_configs.iter().enumerate() {
@@ -345,7 +345,7 @@ impl Game {
         for i in 0..4 {
             point_lights.push(PointLight::new(
                 Vec3::ZERO, // Position will be updated in update loop
-                LightProperties::new(0.05, 0.8, 1.0, 55.0).with_color(colors[i % 4]),
+                LightProperties::new(0.2, 2.5, 3.0, 32.0).with_color(colors[i % 4]),
             ));
         }
 
@@ -828,7 +828,7 @@ impl RenderMode for Game {
         // Update light space matrix for shadows
         self.light_space_matrix =
             self.shadow_map
-                .light_space_matrix(self.light.direction, Vec3::ZERO, 10.0);
+                .light_space_matrix(self.light.direction, Vec3::ZERO, 35.0);
 
         self.input.reset_delta();
 
@@ -882,7 +882,7 @@ impl RenderMode for Game {
 
             let light_x = statue_pos.x + light_angle.cos() * light_radius;
             let light_z = statue_pos.z + light_angle.sin() * light_radius;
-            let light_y = statue_pos.y + 5.0;
+            let light_y = statue_pos.y + 1.5;
 
             self.point_lights[i].position = Vec3::new(light_x, light_y, light_z);
         }

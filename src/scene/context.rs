@@ -16,7 +16,6 @@ pub struct RenderContext<'a> {
 impl<'a> RenderContext<'a> {
     pub fn apply_lighting(&self, shader: &Shader) {
         self.light.apply_to_shader(shader, self.view_pos);
-        self.light.apply_to_shader(shader, self.view_pos);
         for (i, pl) in self.point_lights.iter().enumerate() {
             if i >= 4 {
                 break;

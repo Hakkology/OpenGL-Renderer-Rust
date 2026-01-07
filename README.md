@@ -1,4 +1,4 @@
-# Hakkology OpenGL Engine (Rust) 🦀
+# OpenGL Renderer made with Rust
 
 ![Status](https://img.shields.io/badge/Status-Active-success)
 ![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange)
@@ -9,9 +9,9 @@
 
 A high-performance, modular 3D rendering engine built from scratch in Rust using modern OpenGL. This project serves as a showcase of advanced graphics programming techniques, including real-time dynamic lighting, shadow mapping, and a custom ECS-inspired scene architecture.
 
-## 🌟 Key Features
+## Key Features
 
-### 🎨 Advanced Rendering Pipeline
+### Advanced Rendering Pipeline
 *   **Dynamic Lighting System**:
     *   **Directional Lights**: Simulates sun/moon light with parallel rays.
     *   **Point Lights**: Omnidirectional lights with quadratic attenuation (e.g., light bulbs, fire).
@@ -25,7 +25,7 @@ A high-performance, modular 3D rendering engine built from scratch in Rust using
     *   **Materials**: Support for `Gold`, `Emerald`, `Obsidian`, etc., via a preset factory.
 *   **Skybox**: Seamless cubemap rendering for immersive backgrounds.
 
-### 🏗 Engine Architecture
+### Engine Architecture
 *   **Asset Management**: 
     *   Resource counting references (`Rc`) for efficient memory usage.
     *   Automatic caching of Shaders, Textures, and Models (OBJ) to prevent duplicate loading.
@@ -36,7 +36,7 @@ A high-performance, modular 3D rendering engine built from scratch in Rust using
     *   Event-driven input system wrapping `GLFW` events.
     *   Raycasting for 3D object selection from screen space.
 
-### 🎮 Interactive Elements
+### Interactive Elements
 *   **Orbit Camera**: Professional CAD-like camera controls (Pan, Zoom, Orbit).
 *   **Physics Lite**: Simple AABB and Sphere collision primitives.
 *   **UI System**: Custom text rendering engine and batch-rendered 2D UI elements (buttons, panels).
@@ -67,7 +67,7 @@ src/
 └── window/         # Window Creation & Context Management
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -93,7 +93,7 @@ src/
 
 > **Note**: First compilation might take a few minutes as it compiles dependencies like `glfw` and `image` crates.
 
-## 🎮 Controls & Interactions
+## Controls & Interactions
 
 | Context | Input | Action |
 |:-------:|:-----:|:-------|
@@ -103,7 +103,7 @@ src/
 | **Interaction** | **Pause Button** | Pause/Resume Object Animations |
 | **System** | **Esc** | Close Application |
 
-## 🧩 Modding & Configuration
+## Modding & Configuration
 
 You can tweak engine parameters in `src/config.rs` without touching core logic:
 
@@ -111,10 +111,10 @@ You can tweak engine parameters in `src/config.rs` without touching core logic:
 *   **`camera`**: FOV, Sensitivity, Zoom Limits.
 *   **`rendering`**: Shadow Map Resolution (Default: 2048), Max Lights.
 
-## � License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-*Built with ❤️ by Hakkology & Antigravity AI*
+*Made by Hakkology

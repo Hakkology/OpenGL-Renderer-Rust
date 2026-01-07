@@ -119,7 +119,7 @@ impl ShadowMap {
     /// End shadow pass - restore default framebuffer
     pub fn end_pass(&self, screen_width: u32, screen_height: u32) {
         unsafe {
-            gl::Disable(gl::CULL_FACE); // Return to default (double-sided) as expected by the user's scene
+            gl::Disable(gl::CULL_FACE);
             gl::CullFace(gl::BACK);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             gl::Viewport(0, 0, screen_width as i32, screen_height as i32);

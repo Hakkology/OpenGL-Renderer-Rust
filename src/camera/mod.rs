@@ -100,7 +100,7 @@ impl OrbitCamera {
     }
 
     pub fn projection_matrix(&self, aspect_ratio: f32) -> Mat4 {
-        Mat4::perspective_rh_gl(45.0f32.to_radians(), aspect_ratio, 0.1, 100.0)
+        Mat4::perspective_rh_gl(45.0f32.to_radians(), aspect_ratio, 0.1, 3000.0)
     }
 
     /// Returns view matrix without translation (for skybox)

@@ -1,23 +1,23 @@
-use glam::{Mat4, Vec2, Vec3, Quat};
+use glam::{Mat4, Quat, Vec2, Vec3};
 use glfw::{Action, WindowEvent};
 use std::rc::Rc;
 
 use crate::camera::OrbitCamera;
+use crate::importer::AssetImporter;
 use crate::input::Input;
 use crate::light::{DirectionalLight, Light, PointLight};
-use crate::primitives::{Capsule, Cube, Skybox, Sphere, Plane};
+use crate::math::ray::Ray;
+use crate::primitives::{Capsule, Cube, Plane, Skybox, Sphere};
+use crate::scene::collider::Collider;
+use crate::scene::context::RenderContext;
+use crate::scene::material::{ColoredMaterial, TexturedMaterial};
+use crate::scene::model::Model;
+use crate::scene::object::SceneObject3D;
 use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
 use crate::time::Time;
-use crate::scene::object::SceneObject3D;
-use crate::scene::material::{ColoredMaterial, TexturedMaterial};
-use crate::scene::context::RenderContext;
-use crate::ui::{Button, TextRenderer};
 use crate::ui::inspector::Inspector;
-use crate::math::ray::Ray;
-use crate::scene::collider::Collider;
-use crate::scene::model::Model;
-use crate::importer::AssetImporter;
+use crate::ui::{Button, TextRenderer};
 
 pub trait RenderMode {
     fn update(&mut self, time: &Time);
@@ -34,7 +34,8 @@ pub struct Game {
     floor: SceneObject3D<Rc<Plane>>,
     walls: Vec<SceneObject3D<Rc<Cube>>>,
     trees: Vec<SceneObject3D<Rc<Model>>>,
-    
+    xwing: SceneObject3D<Rc<Model>>,
+
     skybox: Skybox,
 
     // Shaders necessary for dynamic UI elements
@@ -100,14 +101,16 @@ impl Game {
         println!("Skybox shader loaded.");
 
         let texture = Rc::new(
-            Texture::from_file("assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg")
-                .expect("Failed to load texture")
+            Texture::from_file(
+                "assets/resources/textures/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
+            )
+            .expect("Failed to load texture"),
         );
         println!("Texture loaded.");
 
         let sphere_texture = Rc::new(
             Texture::from_file("assets/resources/textures/StoneBricks_1K.tiff")
-                .expect("Failed to load sphere texture")
+                .expect("Failed to load sphere texture"),
         );
         println!("Sphere texture loaded.");
 
@@ -140,8 +143,8 @@ impl Game {
             uv_scale: Vec2::ONE,
             receive_shadows: true,
         });
-        
-        // Stone material - Let's make it receive no shadows as a test/demo? 
+
+        // Stone material - Let's make it receive no shadows as a test/demo?
         // No, user just wants the ABILITY. Let's keep defaults but exposing them.
         let stone_material = Rc::new(TexturedMaterial {
             shader: textured_shader.clone(),
@@ -179,24 +182,34 @@ impl Game {
         let red_cube = SceneObject3D::new(cube_mesh.clone(), red_material.clone())
             .with_name("Red Cube")
             .with_collider(Collider::new_cube(1.0));
-        
+
         let mut orbiting_spheres = Vec::new();
         for i in 0..2 {
-             orbiting_spheres.push(SceneObject3D::new(sphere_mesh.clone(), stone_material.clone())
-                .with_name(&format!("Orbiting Sphere {}", i))
-                .with_collider(Collider::new_sphere(0.6)));
+            orbiting_spheres.push(
+                SceneObject3D::new(sphere_mesh.clone(), stone_material.clone())
+                    .with_name(&format!("Orbiting Sphere {}", i))
+                    .with_collider(Collider::new_sphere(0.6)),
+            );
         }
 
         let mut capsules = Vec::new();
         for i in 0..2 {
-             capsules.push(SceneObject3D::new(capsule_mesh.clone(), grass_material.clone())
-                .with_name(&format!("Floating Capsule {}", i))
-                .with_collider(Collider::new_box(Vec3::new(-0.4, -1.0, -0.4), Vec3::new(0.4, 1.0, 0.4))));
+            capsules.push(
+                SceneObject3D::new(capsule_mesh.clone(), grass_material.clone())
+                    .with_name(&format!("Floating Capsule {}", i))
+                    .with_collider(Collider::new_box(
+                        Vec3::new(-0.4, -1.0, -0.4),
+                        Vec3::new(0.4, 1.0, 0.4),
+                    )),
+            );
         }
 
         let mut floor = SceneObject3D::new(plane_mesh, grass_material.clone())
             .with_name("Floor")
-            .with_collider(Collider::new_box(Vec3::new(-40.0, -0.01, -40.0), Vec3::new(40.0, 0.01, 40.0)));
+            .with_collider(Collider::new_box(
+                Vec3::new(-40.0, -0.01, -40.0),
+                Vec3::new(40.0, 0.01, 40.0),
+            ));
         floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
 
         // Walls
@@ -214,7 +227,7 @@ impl Game {
             texture: sphere_texture.clone(),
             is_lit: true,
             is_repeated: true,
-            uv_scale: Vec2::new(wall_height /8.0, plane_size /8.0), // Swapped based on user feedback that X walls were wrong
+            uv_scale: Vec2::new(wall_height / 8.0, plane_size / 8.0), // Swapped based on user feedback that X walls were wrong
             receive_shadows: true,
         });
 
@@ -226,7 +239,7 @@ impl Game {
             texture: sphere_texture.clone(),
             is_lit: true,
             is_repeated: true,
-            uv_scale: Vec2::new(plane_size /8.0, wall_height /8.0), // U follows X (80), V follows Y (8)
+            uv_scale: Vec2::new(plane_size / 8.0, wall_height / 8.0), // U follows X (80), V follows Y (8)
             receive_shadows: true,
         });
 
@@ -264,24 +277,46 @@ impl Game {
 
         // Load Trees
         // Load Trees (Tree1 removed as requested)
-        let tree2_model = Rc::new(AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj").expect("Failed to load tree2"));
-        
+        let tree2_model = Rc::new(
+            AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj")
+                .expect("Failed to load tree2"),
+        );
+
         let mut trees = Vec::new();
         // Place 1 tree at the edge of the plane
-        let tree_positions = [
-            Vec3::new(-8.0, -4.0, -8.0),
-            Vec3::new(8.0, -4.0, 8.0),
-        ];
+        let tree_positions = [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)];
 
         for (i, pos) in tree_positions.iter().enumerate() {
             let mut tree = SceneObject3D::new(tree2_model.clone(), green_material.clone())
                 .with_name(&format!("Tree {}", i))
-                .with_collider(Collider::new_box(Vec3::new(-0.5, 0.0, -0.5), Vec3::new(0.5, 3.0, 0.5)));
-            
+                .with_collider(Collider::new_box(
+                    Vec3::new(-0.5, 0.0, -0.5),
+                    Vec3::new(0.5, 3.0, 0.5),
+                ));
+
             tree.transform.position = *pos;
             tree.transform.scale = Vec3::splat(0.8); // Slightly smaller scale for consistency
             trees.push(tree);
         }
+
+        // Load X-Wing
+        let xwing_model = Rc::new(
+            AssetImporter::load_model("assets/resources/models/xwing/x-wing.obj")
+                .expect("Failed to load xwing"),
+        );
+
+        let grey_material = Rc::new(ColoredMaterial {
+            shader: colored_shader.clone(),
+            color: Vec3::new(0.7, 0.7, 0.7),
+            is_lit: true,
+            receive_shadows: true,
+        });
+
+        let mut xwing = SceneObject3D::new(xwing_model.clone(), grey_material.clone())
+            .with_name("X-Wing")
+            .with_collider(Collider::new_sphere(2.0));
+        xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
+        xwing.transform.scale = Vec3::splat(1.0);
 
         Self {
             center_cube,
@@ -292,21 +327,22 @@ impl Game {
             floor,
             walls,
             trees,
-            
+            xwing,
+
             skybox: Skybox::new(),
             ui_rect_shader,
             skybox_shader,
             skybox_cubemap,
-            
+
             text_renderer: TextRenderer::new(ui_shader),
             pause_button: Button::new("Pause", 1170.0, 660.0, 100.0, 40.0),
-            
+
             input: Input::new(),
             camera: OrbitCamera::new(),
             shadow_map,
             light,
             point_light: PointLight::simple(Vec3::new(3.0, 3.0, 3.0), 0.05, 0.8, 1.0, 32.0),
-            
+
             light_space_matrix: Mat4::IDENTITY,
             selected_object_id: None,
             inspector: Inspector::new(1070.0, 500.0),
@@ -321,8 +357,6 @@ impl Game {
         self.shadow_map.bind_shadow_map(5);
         shader.set_int("shadowMap", 5);
     }
-
-
 
     fn render_skybox(&self, projection: &Mat4) {
         self.skybox_shader.use_program();
@@ -349,7 +383,7 @@ impl Game {
         for obj in &self.orbiting_spheres {
             obj.render_depth(&self.shadow_map.shader);
         }
-        
+
         for obj in &self.capsules {
             obj.render_depth(&self.shadow_map.shader);
         }
@@ -362,6 +396,7 @@ impl Game {
             obj.render_depth(&self.shadow_map.shader);
         }
 
+        self.xwing.render_depth(&self.shadow_map.shader);
         self.shadow_map.end_pass(1280, 720);
     }
 
@@ -375,16 +410,16 @@ impl Game {
             shadow_map: &self.shadow_map,
             light_space_matrix: self.light_space_matrix,
         };
-        
+
         self.center_cube.render(&context);
         self.green_cube.render(&context);
         self.red_cube.render(&context);
         self.floor.render(&context);
 
         for obj in &self.orbiting_spheres {
-             obj.render(&context);
+            obj.render(&context);
         }
-        
+
         for obj in &self.capsules {
             obj.render(&context);
         }
@@ -396,6 +431,7 @@ impl Game {
         for obj in &self.trees {
             obj.render(&context);
         }
+        self.xwing.render(&context);
     }
 
     fn render_ui(&self) {
@@ -418,24 +454,65 @@ impl Game {
             1280.0,
             720.0,
         );
-        self.pause_button.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0);
+        self.pause_button
+            .draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0);
 
         if let Some(id) = self.selected_object_id {
-             let mut found = None;
-             if self.center_cube.id == id { found = Some((&self.center_cube.name, self.center_cube.transform.position)); }
-             else if self.green_cube.id == id { found = Some((&self.green_cube.name, self.green_cube.transform.position)); }
-             else if self.red_cube.id == id { found = Some((&self.red_cube.name, self.red_cube.transform.position)); }
-             else if self.floor.id == id { found = Some((&self.floor.name, self.floor.transform.position)); }
-             else {
-                 for obj in &self.orbiting_spheres { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } }
-                  if found.is_none() { for obj in &self.capsules { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
-                  if found.is_none() { for obj in &self.walls { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
-                  if found.is_none() { for obj in &self.trees { if obj.id == id { found = Some((&obj.name, obj.transform.position)); break; } } }
-              }
+            let mut found = None;
+            if self.center_cube.id == id {
+                found = Some((&self.center_cube.name, self.center_cube.transform.position));
+            } else if self.green_cube.id == id {
+                found = Some((&self.green_cube.name, self.green_cube.transform.position));
+            } else if self.red_cube.id == id {
+                found = Some((&self.red_cube.name, self.red_cube.transform.position));
+            } else if self.floor.id == id {
+                found = Some((&self.floor.name, self.floor.transform.position));
+            } else {
+                for obj in &self.orbiting_spheres {
+                    if obj.id == id {
+                        found = Some((&obj.name, obj.transform.position));
+                        break;
+                    }
+                }
+                if found.is_none() {
+                    for obj in &self.capsules {
+                        if obj.id == id {
+                            found = Some((&obj.name, obj.transform.position));
+                            break;
+                        }
+                    }
+                }
+                if found.is_none() {
+                    for obj in &self.walls {
+                        if obj.id == id {
+                            found = Some((&obj.name, obj.transform.position));
+                            break;
+                        }
+                    }
+                }
+                if found.is_none() {
+                    for obj in &self.trees {
+                        if obj.id == id {
+                            found = Some((&obj.name, obj.transform.position));
+                            break;
+                        }
+                    }
+                }
+                if found.is_none() && self.xwing.id == id {
+                    found = Some((&self.xwing.name, self.xwing.transform.position));
+                }
+            }
 
-             if let Some((name, pos)) = found {
-                 self.inspector.draw(&self.text_renderer, &self.ui_rect_shader, 1280.0, 720.0, name, pos);
-             }
+            if let Some((name, pos)) = found {
+                self.inspector.draw(
+                    &self.text_renderer,
+                    &self.ui_rect_shader,
+                    1280.0,
+                    720.0,
+                    name,
+                    pos,
+                );
+            }
         }
     }
 
@@ -449,31 +526,118 @@ impl Game {
             }
         };
 
-        if let Some(dist) = self.center_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.center_cube.transform)) { check(dist, self.center_cube.id); }
-        if let Some(dist) = self.green_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.green_cube.transform)) { check(dist, self.green_cube.id); }
-        if let Some(dist) = self.red_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.red_cube.transform)) { check(dist, self.red_cube.id); }
-        if let Some(dist) = self.floor.collider.as_ref().and_then(|c| c.intersect(ray, &self.floor.transform)) { check(dist, self.floor.id); }
-        
-        for obj in &self.orbiting_spheres { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
-        for obj in &self.walls { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
-        for obj in &self.capsules { if let Some(dist) = obj.collider.as_ref().and_then(|c| c.intersect(ray, &obj.transform)) { check(dist, obj.id); } }
-        
+        if let Some(dist) = self
+            .center_cube
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.center_cube.transform))
+        {
+            check(dist, self.center_cube.id);
+        }
+        if let Some(dist) = self
+            .green_cube
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.green_cube.transform))
+        {
+            check(dist, self.green_cube.id);
+        }
+        if let Some(dist) = self
+            .red_cube
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.red_cube.transform))
+        {
+            check(dist, self.red_cube.id);
+        }
+        if let Some(dist) = self
+            .floor
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.floor.transform))
+        {
+            check(dist, self.floor.id);
+        }
+
+        for obj in &self.orbiting_spheres {
+            if let Some(dist) = obj
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &obj.transform))
+            {
+                check(dist, obj.id);
+            }
+        }
+        for obj in &self.walls {
+            if let Some(dist) = obj
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &obj.transform))
+            {
+                check(dist, obj.id);
+            }
+        }
+        for obj in &self.capsules {
+            if let Some(dist) = obj
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &obj.transform))
+            {
+                check(dist, obj.id);
+            }
+        }
+        if let Some(dist) = self
+            .xwing
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.xwing.transform))
+        {
+            check(dist, self.xwing.id);
+        }
+
         hit_id
     }
 
     fn apply_transform_delta(&mut self, id: usize, delta: Vec3) {
-         if self.center_cube.id == id { self.center_cube.transform.position += delta; }
-         else if self.green_cube.id == id { self.green_cube.transform.position += delta; }
-         else if self.red_cube.id == id { self.red_cube.transform.position += delta; }
-          else if self.floor.id == id { self.floor.transform.position += delta; }
-          else {
-              for obj in &mut self.orbiting_spheres { if obj.id == id { obj.transform.position += delta; return; } }
-              for obj in &mut self.walls { if obj.id == id { obj.transform.position += delta; return; } }
-              for obj in &mut self.capsules { if obj.id == id { obj.transform.position += delta; return; } }
-              for obj in &mut self.trees { if obj.id == id { obj.transform.position += delta; return; } }
-          }
+        if self.center_cube.id == id {
+            self.center_cube.transform.position += delta;
+        } else if self.green_cube.id == id {
+            self.green_cube.transform.position += delta;
+        } else if self.red_cube.id == id {
+            self.red_cube.transform.position += delta;
+        } else if self.floor.id == id {
+            self.floor.transform.position += delta;
+        } else {
+            for obj in &mut self.orbiting_spheres {
+                if obj.id == id {
+                    obj.transform.position += delta;
+                    return;
+                }
+            }
+            for obj in &mut self.walls {
+                if obj.id == id {
+                    obj.transform.position += delta;
+                    return;
+                }
+            }
+            for obj in &mut self.capsules {
+                if obj.id == id {
+                    obj.transform.position += delta;
+                    return;
+                }
+            }
+            for obj in &mut self.trees {
+                if obj.id == id {
+                    obj.transform.position += delta;
+                    return;
+                }
+            }
+            if self.xwing.id == id {
+                self.xwing.transform.position += delta;
+                return;
+            }
+        }
     }
-
 
     fn check_intersection(&self, ray: &Ray) {
         let mut min_dist = f32::MAX;
@@ -487,47 +651,95 @@ impl Game {
             }
         };
 
-        if let Some(dist) = self.center_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.center_cube.transform)) {
+        if let Some(dist) = self
+            .center_cube
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.center_cube.transform))
+        {
             check(dist, &self.center_cube.name, self.center_cube.id);
         }
-        if let Some(dist) = self.green_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.green_cube.transform)) {
-             check(dist, &self.green_cube.name, self.green_cube.id);
+        if let Some(dist) = self
+            .green_cube
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.green_cube.transform))
+        {
+            check(dist, &self.green_cube.name, self.green_cube.id);
         }
-         if let Some(dist) = self.red_cube.collider.as_ref().and_then(|c| c.intersect(ray, &self.red_cube.transform)) {
-             check(dist, &self.red_cube.name, self.red_cube.id);
+        if let Some(dist) = self
+            .red_cube
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.red_cube.transform))
+        {
+            check(dist, &self.red_cube.name, self.red_cube.id);
         }
-        if let Some(dist) = self.floor.collider.as_ref().and_then(|c| c.intersect(ray, &self.floor.transform)) {
-             check(dist, &self.floor.name, self.floor.id);
+        if let Some(dist) = self
+            .floor
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.floor.transform))
+        {
+            check(dist, &self.floor.name, self.floor.id);
         }
-        
+
         for p in &self.orbiting_spheres {
-            if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
+            if let Some(dist) = p
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &p.transform))
+            {
                 check(dist, &p.name, p.id);
             }
         }
-        
+
         for p in &self.capsules {
-             if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
-                 check(dist, &p.name, p.id);
-             }
+            if let Some(dist) = p
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &p.transform))
+            {
+                check(dist, &p.name, p.id);
+            }
         }
 
         for p in &self.walls {
-            if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
-                check(dist, &p.name, p.id);
-            }
-       }
-
-        for p in &self.trees {
-            if let Some(dist) = p.collider.as_ref().and_then(|c| c.intersect(ray, &p.transform)) {
+            if let Some(dist) = p
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &p.transform))
+            {
                 check(dist, &p.name, p.id);
             }
         }
-        
+
+        for p in &self.trees {
+            if let Some(dist) = p
+                .collider
+                .as_ref()
+                .and_then(|c| c.intersect(ray, &p.transform))
+            {
+                check(dist, &p.name, p.id);
+            }
+        }
+
+        if let Some(dist) = self
+            .xwing
+            .collider
+            .as_ref()
+            .and_then(|c| c.intersect(ray, &self.xwing.transform))
+        {
+            check(dist, &self.xwing.name, self.xwing.id);
+        }
+
         if let Some((name, id)) = hit_object {
-             println!("Raycast Hit: '{}' (ID: {}) at distance {:.2}", name, id, min_dist);
+            println!(
+                "Raycast Hit: '{}' (ID: {}) at distance {:.2}",
+                name, id, min_dist
+            );
         } else {
-             println!("Raycast Miss");
+            println!("Raycast Miss");
         }
     }
 }
@@ -537,7 +749,7 @@ impl RenderMode for Game {
         // self.time += delta_time; // No longer manual accumulation
         let current_time = time.time();
         let delta_time = time.delta_time;
-        
+
         self.camera.update(&self.input, delta_time);
 
         // Update light space matrix for shadows
@@ -552,34 +764,48 @@ impl RenderMode for Game {
         let configs = [(2.5, 1.2), (4.0, 0.8)];
         for (i, (radius, speed)) in configs.iter().enumerate() {
             if i < self.orbiting_spheres.len() {
-                 let x = (current_time * speed).cos() * radius;
-                 let z = (current_time * speed).sin() * radius;
-                 self.orbiting_spheres[i].transform.position = Vec3::new(x, 0.0, z);
+                let x = (current_time * speed).cos() * radius;
+                let z = (current_time * speed).sin() * radius;
+                self.orbiting_spheres[i].transform.position = Vec3::new(x, 0.0, z);
             }
         }
-        
+
         // Green Cube
         self.green_cube.transform.position = Vec3::new(0.0, 2.0, 0.0);
         self.green_cube.transform.rotation = Quat::from_rotation_y(current_time);
-        
+
         // Red Cube
         self.red_cube.transform.position = Vec3::new(0.0, -2.0, 0.0);
         self.red_cube.transform.rotation = Quat::from_rotation_y(-current_time);
-        
+
         // Capsules
         let tilt = 45.0f32.to_radians();
         let tilt_quat = Quat::from_rotation_z(tilt);
-        
+
         for i in 0..2 {
-             if i >= self.capsules.len() { break; }
-             let offset = i as f32 * std::f32::consts::PI;
-             let angle = current_time * 0.7 + offset;
-             let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
-             let tilted_pos = tilt_quat.mul_vec3(orbit_pos);
-             
-             self.capsules[i].transform.position = tilted_pos;
-             self.capsules[i].transform.rotation = Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
+            if i >= self.capsules.len() {
+                break;
+            }
+            let offset = i as f32 * std::f32::consts::PI;
+            let angle = current_time * 0.7 + offset;
+            let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
+            let tilted_pos = tilt_quat.mul_vec3(orbit_pos);
+
+            self.capsules[i].transform.position = tilted_pos;
+            self.capsules[i].transform.rotation =
+                Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
         }
+
+        // X-Wing Orbit Logic
+        let xw_radius = 8.0;
+        let xw_speed = 0.5;
+        let xw_angle = current_time * xw_speed;
+        let xw_x = xw_angle.cos() * xw_radius;
+        let xw_z = xw_angle.sin() * xw_radius;
+        self.xwing.transform.position = Vec3::new(xw_x, 0.0, xw_z);
+        let bank = 30.0f32.to_radians();
+        self.xwing.transform.rotation =
+            Quat::from_rotation_y(-xw_angle) * Quat::from_rotation_z(bank);
     }
 
     fn render(&mut self) {
@@ -604,11 +830,15 @@ impl RenderMode for Game {
 
         if let WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) = event {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
-            
+
             // 1. Pause Button
             if self.pause_button.is_clicked(mx, my, 720.0) {
                 time.toggle_pause();
-                self.pause_button.text = if time.is_paused { "Resume".to_string() } else { "Pause".to_string() };
+                self.pause_button.text = if time.is_paused {
+                    "Resume".to_string()
+                } else {
+                    "Pause".to_string()
+                };
                 return;
             }
 

@@ -29,24 +29,28 @@ impl AssetImporter {
         let img = image::open(path).map_err(|e| format!("Failed to open image {}: {}", path, e))?;
         let (width, height) = img.dimensions();
         let data = img.to_rgba8();
-        
+
         println!("Loaded texture from: {}, size: {}x{}", path, width, height);
 
         Ok(Texture::new(width, height, &data, gl::RGBA))
     }
 
     pub fn load_model(path: &str) -> Result<crate::scene::model::Model, String> {
-        use russimp::scene::{Scene, PostProcess};
         use crate::scene::model::Mesh;
-        
+        use russimp::scene::{PostProcess, Scene};
+
         let scene = Scene::from_file(
             path,
             vec![
                 PostProcess::Triangulate,
                 PostProcess::FlipUVs,
                 PostProcess::JoinIdenticalVertices,
+                PostProcess::PreTransformVertices,
+                PostProcess::GenerateNormals,
+                PostProcess::ValidateDataStructure,
             ],
-        ).map_err(|e| format!("Failed to load model {}: {}", path, e))?;
+        )
+        .map_err(|e| format!("Failed to load model {}: {}", path, e))?;
 
         let mut meshes = Vec::new();
 
@@ -87,7 +91,8 @@ impl AssetImporter {
             meshes.push(Mesh::new(&vertices, &indices));
         }
 
-        println!("Loaded model from: {}, meshes: {}", path, meshes.len());
+        println!("Loaded model: {}, meshes: {}", path, meshes.len());
+
         Ok(crate::scene::model::Model::new(meshes))
     }
 }

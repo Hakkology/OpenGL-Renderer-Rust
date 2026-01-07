@@ -28,9 +28,11 @@ pub mod shaders {
     pub const SKYBOX_VERT: &str = concat!("assets/shaders", "/skybox.vert");
     pub const SKYBOX_FRAG: &str = concat!("assets/shaders", "/skybox.frag");
 
-    // Shadow shaders
-    pub const DEPTH_VERT: &str = concat!("assets/shaders", "/depth.vert");
-    pub const DEPTH_FRAG: &str = concat!("assets/shaders", "/depth.frag");
+    // Shadow shaders (directional light)
+    pub const SHADOW_DEPTH_VERT: &str = concat!("assets/shaders", "/shadow_depth.vert");
+    pub const SHADOW_DEPTH_FRAG: &str = concat!("assets/shaders", "/shadow_depth.frag");
+
+    // Point shadow shaders (point light cubemap)
     pub const POINT_SHADOW_VERT: &str = concat!("assets/shaders", "/point_shadow_depth.vert");
     pub const POINT_SHADOW_GEOM: &str = concat!("assets/shaders", "/point_shadow_depth.geom");
     pub const POINT_SHADOW_FRAG: &str = concat!("assets/shaders", "/point_shadow_depth.frag");

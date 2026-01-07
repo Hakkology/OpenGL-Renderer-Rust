@@ -1,4 +1,5 @@
 extern crate gl;
+use crate::assets::paths::shaders as shader_paths;
 use crate::shaders::Shader;
 use gl::types::*;
 use glam::{Mat4, Vec3};
@@ -15,8 +16,8 @@ pub struct ShadowMap {
 impl ShadowMap {
     pub fn new(width: u32, height: u32) -> Self {
         let shader = Shader::from_files(
-            "assets/shaders/shadow_depth.vert",
-            "assets/shaders/shadow_depth.frag",
+            shader_paths::SHADOW_DEPTH_VERT,
+            shader_paths::SHADOW_DEPTH_FRAG,
         )
         .expect("Failed to create shadow depth shader");
 
@@ -155,9 +156,9 @@ pub struct PointShadowMap {
 impl PointShadowMap {
     pub fn new(resolution: u32) -> Self {
         let shader = Shader::from_files_with_geom(
-            "assets/shaders/point_shadow_depth.vert",
-            "assets/shaders/point_shadow_depth.frag",
-            "assets/shaders/point_shadow_depth.geom",
+            shader_paths::POINT_SHADOW_VERT,
+            shader_paths::POINT_SHADOW_FRAG,
+            shader_paths::POINT_SHADOW_GEOM,
         )
         .expect("Failed to create point shadow shader");
 

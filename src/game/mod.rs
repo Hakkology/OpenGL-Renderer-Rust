@@ -17,7 +17,7 @@ use crate::primitives::{Capsule, Cube, Plane, Sphere};
 use crate::renderer::Renderer;
 use crate::scene::collider::Collider;
 use crate::scene::manager::Scene;
-use crate::scene::material::{ColoredMaterial, TexturedMaterial};
+use crate::scene::material_factory::MaterialFactory;
 use crate::scene::object::SceneObject3D;
 
 use crate::time::Time;
@@ -123,45 +123,15 @@ impl Game {
         let capsule_mesh = Rc::new(Capsule::new(0.4, 1.2, 32, 16, 16));
         let plane_mesh = Rc::new(Plane::new(80.0));
 
-        // Create Materials
-        let grass_material = Rc::new(TexturedMaterial {
-            shader: textured_shader.clone(),
-            texture: texture.clone(),
-            is_lit: true,
-            is_repeated: false,
-            uv_scale: Vec2::ONE,
-            receive_shadows: true,
-        });
+        // Create Material Factory
+        let materials = MaterialFactory::new(colored_shader.clone(), textured_shader.clone());
 
-        let stone_material = Rc::new(TexturedMaterial {
-            shader: textured_shader.clone(),
-            texture: sphere_texture.clone(),
-            is_lit: true,
-            is_repeated: false,
-            uv_scale: Vec2::ONE,
-            receive_shadows: true,
-        });
-
-        let green_material = Rc::new(ColoredMaterial {
-            shader: colored_shader.clone(),
-            color: Vec3::new(0.5, 0.8, 0.2),
-            is_lit: true,
-            receive_shadows: true,
-        });
-
-        let red_material = Rc::new(ColoredMaterial {
-            shader: colored_shader.clone(),
-            color: Vec3::new(1.0, 0.0, 0.0),
-            is_lit: true,
-            receive_shadows: true,
-        });
-
-        let grey_material = Rc::new(ColoredMaterial {
-            shader: colored_shader.clone(),
-            color: Vec3::new(0.7, 0.7, 0.7),
-            is_lit: true,
-            receive_shadows: true,
-        });
+        // Create Materials using Factory
+        let grass_material = materials.textured(texture.clone());
+        let stone_material = materials.textured(sphere_texture.clone());
+        let green_material = materials.grass_green();
+        let red_material = materials.red();
+        let grey_material = materials.light_grey();
 
         let mut scene = Scene::new();
 
@@ -231,23 +201,15 @@ impl Game {
         let half_size = plane_size / 2.0;
         let wall_thickness = 1.0;
 
-        let wall_mat_x = Rc::new(TexturedMaterial {
-            shader: textured_shader.clone(),
-            texture: sphere_texture.clone(),
-            is_lit: true,
-            is_repeated: true,
-            uv_scale: Vec2::new(wall_height / 8.0, plane_size / 8.0),
-            receive_shadows: true,
-        });
+        let wall_mat_x = materials.textured_tiled(
+            sphere_texture.clone(),
+            Vec2::new(wall_height / 8.0, plane_size / 8.0),
+        );
 
-        let wall_mat_z = Rc::new(TexturedMaterial {
-            shader: textured_shader.clone(),
-            texture: sphere_texture.clone(),
-            is_lit: true,
-            is_repeated: true,
-            uv_scale: Vec2::new(plane_size / 8.0, wall_height / 8.0),
-            receive_shadows: true,
-        });
+        let wall_mat_z = materials.textured_tiled(
+            sphere_texture.clone(),
+            Vec2::new(plane_size / 8.0, wall_height / 8.0),
+        );
 
         let mut w1 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall +X")

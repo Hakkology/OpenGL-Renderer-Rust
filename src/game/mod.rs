@@ -5,13 +5,12 @@ use std::rc::Rc;
 use crate::camera::OrbitCamera;
 use crate::importer::AssetImporter;
 use crate::input::Input;
-use crate::light::{components::LightProperties, DirectionalLight, Light, PointLight};
+use crate::light::{components::LightProperties, DirectionalLight, PointLight};
 use crate::math::ray::Ray;
 use crate::primitives::{Capsule, Cube, Plane, Skybox, Sphere};
 use crate::scene::collider::Collider;
 use crate::scene::context::RenderContext;
 use crate::scene::material::{ColoredMaterial, TexturedMaterial};
-use crate::scene::model::Model;
 use crate::scene::object::SceneObject3D;
 use crate::shaders::{CubeMap, Shader, Texture};
 use crate::shadow::ShadowMap;
@@ -281,7 +280,6 @@ impl Game {
         );
 
         let mut trees = Vec::new();
-        // Place 1 tree at the edge of the plane
         let tree_positions = [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)];
 
         for (i, pos) in tree_positions.iter().enumerate() {
@@ -294,7 +292,7 @@ impl Game {
                     ));
 
             tree.transform.position = *pos;
-            tree.transform.scale = Vec3::splat(0.8); // Slightly smaller scale for consistency
+            tree.transform.scale = Vec3::splat(0.8);
             trees.push(tree);
         }
 
@@ -317,7 +315,7 @@ impl Game {
         xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
         xwing.transform.scale = Vec3::splat(1.0);
 
-        // Load Statue
+        // Load Statues
         let statue_model = Rc::new(
             AssetImporter::load_model("assets/resources/models/Statue/12334_statue_v1_l3.obj")
                 .expect("Failed to load statue"),
@@ -337,7 +335,6 @@ impl Game {
                 .with_collider(Collider::new_sphere(500.0));
             s.transform.position = *pos;
             s.transform.scale = Vec3::splat(0.01);
-            // Combined rotation: Yaw to face center * Fix model orientation (-90 X)
             s.transform.rotation = Quat::from_rotation_y(yaw_deg.to_radians())
                 * Quat::from_rotation_x(-90.0f32.to_radians());
             statues.push(s);
@@ -461,20 +458,13 @@ impl Game {
         self.shadow_map
             .set_light_space_matrix(&self.light_space_matrix);
 
-        // Unified depth rendering
         self.each_object(|obj| obj.render_depth(&self.shadow_map.shader));
-
         self.shadow_map.end_pass(1280, 720);
     }
 
     fn render_point_shadow_pass(&mut self) {
         let far_plane = 25.0;
-
-        // OPTIMIZATION: Update only TWO lights per frame.
-        // This balances ghosting artifacts vs performance.
         for i in 0..2 {
-            // frame 0: lights 0, 1
-            // frame 1: lights 2, 3
             let offset = (self.frame_count % 2) as usize * 2;
             let light_idx = offset + i;
 
@@ -508,7 +498,7 @@ impl Game {
         self.text_renderer.render_rect(
             &self.ui_rect_shader,
             10.0,
-            660.0, // Adjusted for 720p (720 - 60)
+            660.0,
             180.0,
             50.0,
             glam::Vec4::new(0.0, 0.0, 0.0, 0.5),
@@ -529,57 +519,11 @@ impl Game {
 
         if let Some(id) = self.selected_object_id {
             let mut found = None;
-            if self.center_cube.id == id {
-                found = Some((&self.center_cube.name, self.center_cube.transform.position));
-            } else if self.green_cube.id == id {
-                found = Some((&self.green_cube.name, self.green_cube.transform.position));
-            } else if self.red_cube.id == id {
-                found = Some((&self.red_cube.name, self.red_cube.transform.position));
-            } else if self.floor.id == id {
-                found = Some((&self.floor.name, self.floor.transform.position));
-            } else {
-                for obj in &self.orbiting_spheres {
-                    if obj.id == id {
-                        found = Some((&obj.name, obj.transform.position));
-                        break;
-                    }
+            self.each_object(|obj| {
+                if obj.id == id {
+                    found = Some((obj.name.clone(), obj.transform.position));
                 }
-                if found.is_none() {
-                    for obj in &self.capsules {
-                        if obj.id == id {
-                            found = Some((&obj.name, obj.transform.position));
-                            break;
-                        }
-                    }
-                }
-                if found.is_none() {
-                    for obj in &self.walls {
-                        if obj.id == id {
-                            found = Some((&obj.name, obj.transform.position));
-                            break;
-                        }
-                    }
-                }
-                if found.is_none() {
-                    for obj in &self.trees {
-                        if obj.id == id {
-                            found = Some((&obj.name, obj.transform.position));
-                            break;
-                        }
-                    }
-                }
-                if found.is_none() && self.xwing.id == id {
-                    found = Some((&self.xwing.name, self.xwing.transform.position));
-                }
-                if found.is_none() {
-                    for obj in &self.statues {
-                        if obj.id == id {
-                            found = Some((&obj.name, obj.transform.position));
-                            break;
-                        }
-                    }
-                }
-            }
+            });
 
             if let Some((name, pos)) = found {
                 self.inspector.draw(
@@ -587,7 +531,7 @@ impl Game {
                     &self.ui_rect_shader,
                     1280.0,
                     720.0,
-                    name,
+                    &name,
                     pos,
                 );
             }
@@ -604,40 +548,8 @@ impl Game {
             }
         };
 
-        if let Some(dist) = self
-            .center_cube
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.center_cube.transform))
-        {
-            check(dist, self.center_cube.id);
-        }
-        if let Some(dist) = self
-            .green_cube
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.green_cube.transform))
-        {
-            check(dist, self.green_cube.id);
-        }
-        if let Some(dist) = self
-            .red_cube
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.red_cube.transform))
-        {
-            check(dist, self.red_cube.id);
-        }
-        if let Some(dist) = self
-            .floor
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.floor.transform))
-        {
-            check(dist, self.floor.id);
-        }
-
-        for obj in &self.trees {
+        // Unified Raycasting
+        self.each_object(|obj| {
             if let Some(dist) = obj
                 .collider
                 .as_ref()
@@ -645,102 +557,17 @@ impl Game {
             {
                 check(dist, obj.id);
             }
-        }
-
-        for obj in &self.orbiting_spheres {
-            if let Some(dist) = obj
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &obj.transform))
-            {
-                check(dist, obj.id);
-            }
-        }
-        for obj in &self.walls {
-            if let Some(dist) = obj
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &obj.transform))
-            {
-                check(dist, obj.id);
-            }
-        }
-        for obj in &self.capsules {
-            if let Some(dist) = obj
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &obj.transform))
-            {
-                check(dist, obj.id);
-            }
-        }
-        if let Some(dist) = self
-            .xwing
-            .collider
-            .as_ref()
-            .and_then(|c| c.intersect(ray, &self.xwing.transform))
-        {
-            check(dist, self.xwing.id);
-        }
-
-        for obj in &self.statues {
-            if let Some(dist) = obj
-                .collider
-                .as_ref()
-                .and_then(|c| c.intersect(ray, &obj.transform))
-            {
-                check(dist, obj.id);
-            }
-        }
+        });
 
         hit_id
     }
 
     fn apply_transform_delta(&mut self, id: usize, delta: Vec3) {
-        if self.center_cube.id == id {
-            self.center_cube.transform.position += delta;
-        } else if self.green_cube.id == id {
-            self.green_cube.transform.position += delta;
-        } else if self.red_cube.id == id {
-            self.red_cube.transform.position += delta;
-        } else if self.floor.id == id {
-            self.floor.transform.position += delta;
-        } else {
-            for obj in &mut self.orbiting_spheres {
-                if obj.id == id {
-                    obj.transform.position += delta;
-                    return;
-                }
+        self.each_object_mut(|obj| {
+            if obj.id == id {
+                obj.transform.position += delta;
             }
-            for obj in &mut self.walls {
-                if obj.id == id {
-                    obj.transform.position += delta;
-                    return;
-                }
-            }
-            for obj in &mut self.capsules {
-                if obj.id == id {
-                    obj.transform.position += delta;
-                    return;
-                }
-            }
-            for obj in &mut self.trees {
-                if obj.id == id {
-                    obj.transform.position += delta;
-                    return;
-                }
-            }
-            if self.xwing.id == id {
-                self.xwing.transform.position += delta;
-                return;
-            }
-            for obj in &mut self.statues {
-                if obj.id == id {
-                    obj.transform.position += delta;
-                    return;
-                }
-            }
-        }
+        });
     }
 
     fn check_intersection(&self, ray: &Ray) {
@@ -755,7 +582,6 @@ impl Game {
             }
         };
 
-        // Unified Raycasting
         self.each_object(|obj| {
             if let Some(dist) = obj
                 .collider
@@ -874,7 +700,7 @@ impl RenderMode for Game {
         if let WindowEvent::MouseButton(glfw::MouseButtonLeft, Action::Press, _) = event {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
 
-            // 1. Pause Button
+            // Pause Button
             if self.pause_button.is_clicked(mx, my, 720.0) {
                 time.toggle_pause();
                 self.pause_button.text = if time.is_paused {
@@ -885,7 +711,7 @@ impl RenderMode for Game {
                 return;
             }
 
-            // 2. Inspector Interaction
+            // Inspector Interaction
             if self.selected_object_id.is_some() {
                 let delta = self.inspector.check_clicks(mx, my, 720.0);
                 if delta != Vec3::ZERO {

@@ -8,8 +8,8 @@ use crate::camera::OrbitCamera;
 use crate::config::{ui as ui_cfg, window as win_cfg};
 use crate::input::Input;
 use crate::light::{
-    components::{Attenuation, LightProperties},
-    DirectionalLight, PointLight,
+    components::{Attenuation, LightProperties, SpotCone},
+    DirectionalLight, PointLight, SpotLight,
 };
 use crate::logic::controller::{
     FloatingController, OrbitController, OscillationController, RotationController,
@@ -52,6 +52,7 @@ pub struct Game {
     // Lights
     light: DirectionalLight,
     point_lights: Vec<PointLight>,
+    spot_lights: Vec<SpotLight>,
 
     // State
     is_paused: bool,
@@ -302,6 +303,21 @@ impl Game {
             );
         }
 
+        // Add a SpotLight pointing down from above the center
+        let mut spot_lights = Vec::new();
+        spot_lights.push(
+            SpotLight::simple(
+                Vec3::new(0.0, 10.0, 0.0),
+                Vec3::new(0.0, -1.0, 0.0),
+                0.0,
+                1.0,
+                1.0,
+                32.0,
+            )
+            .with_cone(SpotCone::from_degrees(12.5, 17.5))
+            .with_attenuation(Attenuation::new(1.0, 0.09, 0.032)),
+        );
+
         let pause_button = Button::new("Pause", 1170.0, 660.0, 100.0, 40.0);
 
         Self {
@@ -315,6 +331,7 @@ impl Game {
             camera: OrbitCamera::new(),
             light,
             point_lights,
+            spot_lights,
             is_paused: false,
         }
     }
@@ -368,8 +385,13 @@ impl RenderMode for Game {
     }
 
     fn render(&mut self) {
-        self.renderer
-            .render(&self.scene, &self.camera, &self.light, &self.point_lights);
+        self.renderer.render(
+            &self.scene,
+            &self.camera,
+            &self.light,
+            &self.point_lights,
+            &self.spot_lights,
+        );
 
         // 1. Game Specific UI: Top Panel
         let w = win_cfg::WIDTH as f32;

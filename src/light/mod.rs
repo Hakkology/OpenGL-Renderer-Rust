@@ -8,6 +8,7 @@ use glam::Vec3;
 
 pub use directional::DirectionalLight;
 pub use point::PointLight;
+pub use spotlight::SpotLight;
 
 /// Common trait for all light types
 pub trait Light {

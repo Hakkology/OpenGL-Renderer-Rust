@@ -24,8 +24,10 @@ impl Plane {
 
         let vertices: [f32; 32] = [
             // positions          // tex coords   // normals
-            -half, 0.0, -half, 0.0, 1.0, 0.0, 1.0, 0.0, half, 0.0, -half, 1.0, 1.0, 0.0, 1.0, 0.0,
-            -half, 0.0, half, 0.0, 0.0, 0.0, 1.0, 0.0, half, 0.0, half, 1.0, 0.0, 0.0, 1.0, 0.0,
+            -half, 0.0, half, 0.0, 0.0, 0.0, 1.0, 0.0, // Bottom-Left
+            half, 0.0, half, 1.0, 0.0, 0.0, 1.0, 0.0, // Bottom-Right
+            -half, 0.0, -half, 0.0, 1.0, 0.0, 1.0, 0.0, // Top-Left
+            half, 0.0, -half, 1.0, 1.0, 0.0, 1.0, 0.0, // Top-Right
         ];
 
         unsafe {

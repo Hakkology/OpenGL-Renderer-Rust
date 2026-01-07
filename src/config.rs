@@ -63,6 +63,9 @@ pub mod rendering {
 
     /// Number of point lights supported
     pub const MAX_POINT_LIGHTS: usize = 5;
+
+    /// Number of spot lights supported
+    pub const MAX_SPOT_LIGHTS: usize = 4;
 }
 
 pub mod ui {

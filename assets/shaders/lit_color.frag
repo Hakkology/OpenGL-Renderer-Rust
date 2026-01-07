@@ -20,13 +20,32 @@ struct PointLight {
     float Ambient;
     float Diffuse;
     float Specular;
-    float Shininess;
+    float Shininess; // Use light shininess if specialized, else material
     float Constant;
     float Linear;
     float Quadratic;
 };
 #define NR_POINT_LIGHTS 4
 uniform PointLight pointLights[NR_POINT_LIGHTS];
+
+// Spot Light Structure
+struct SpotLight {
+    vec3 position;
+    vec3 direction;
+    float CutOff;
+    float OuterCutOff;
+  
+    float Constant;
+    float Linear;
+    float Quadratic;
+  
+    vec3 Color;
+    float Ambient;
+    float Diffuse;
+    float Specular;
+};
+#define NR_SPOT_LIGHTS 4
+uniform SpotLight spotLights[NR_SPOT_LIGHTS];
 
 uniform vec3 viewPos;
 uniform vec3 objectColor;
@@ -35,6 +54,8 @@ uniform vec3 objectColor;
 uniform sampler2D shadowMap;
 uniform samplerCube pointShadowMaps[NR_POINT_LIGHTS];
 uniform float farPlane;
+uniform int nrPointLights;
+uniform int nrSpotLights;
 
 // Calculate Point Shadow (with PCF)
 float calcPointShadow(vec3 fragPos, vec3 lightPos, samplerCube shadowMap, float lightRange) {
@@ -73,6 +94,7 @@ float calcShadow(vec4 fragPosLightSpace, vec3 normal, vec3 lightDirNorm) {
     projCoords = projCoords * 0.5 + 0.5;
     
     if(projCoords.z > 1.0) return 0.0;
+    if(projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0) return 0.0;
     
     float currentDepth = projCoords.z;
     float bias = max(0.05 * (1.0 - dot(normal, lightDirNorm)), 0.005);
@@ -120,6 +142,34 @@ vec3 calcPointLight(PointLight light, vec3 norm, vec3 viewDir, float shadow) {
     return ambient + (1.0 - shadow) * (diffuse + specular);
 }
 
+// Spot Light Calculation
+vec3 calcSpotLight(SpotLight light, vec3 norm, vec3 fragPos, vec3 viewDir) {
+    vec3 lightDir = normalize(light.position - fragPos);
+    
+    // Diffuse shading
+    float diff = max(dot(norm, lightDir), 0.0);
+    
+    // Specular shading
+    vec3 reflectDir = reflect(-lightDir, norm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+    
+    // Attenuation
+    float distance = length(light.position - fragPos);
+    float attenuation = 1.0 / (light.Constant + light.Linear * distance + light.Quadratic * (distance * distance));    
+    
+    // Spotlight intensity
+    float theta = dot(lightDir, normalize(-light.direction)); 
+    float epsilon = light.CutOff - light.OuterCutOff;
+    float intensity = clamp((theta - light.OuterCutOff) / epsilon, 0.0, 1.0);
+    
+    // Combine
+    vec3 ambient = light.Ambient * light.Color * attenuation; // Ambient always present but attenuated
+    vec3 diffuse = light.Diffuse * diff * light.Color * intensity * attenuation;
+    vec3 specular = light.Specular * spec * light.Color * intensity * attenuation;
+    
+    return ambient + diffuse + specular;
+}
+
 uniform int u_UseLighting;
 uniform int u_UseShadows;
 
@@ -132,22 +182,26 @@ void main() {
         vec3 norm = normalize(Normal);
         vec3 viewDir = normalize(viewPos - FragPos);
         
-        // Two-sided lighting: Ensure normal faces camera
+        // Two-sided lighting
         if (dot(norm, viewDir) < 0.0) {
             norm = -norm;
         }
         vec3 lightDirNorm = normalize(-lightDir);
         
-        // Calculate shadow only if facing light
+        // Directional Shadow
         float NdotL = dot(norm, lightDirNorm);
         float shadow = 0.0;
         if (u_UseShadows != 0 && NdotL > 0.0) {
             shadow = calcShadow(FragPosLightSpace, norm, lightDirNorm);
         }
 
+        // Directional Light
         result = calcDirLight(norm, viewDir, shadow);
         
-        for(int i = 0; i < NR_POINT_LIGHTS; i++) {
+
+
+        // Point Lights
+        for(int i = 0; i < nrPointLights; i++) {
             float pShadow = 0.0;
             if (u_UseShadows != 0) {
                 vec3 lightToFrag = normalize(FragPos - pointLights[i].position);
@@ -156,6 +210,13 @@ void main() {
                 }
             }
             result += calcPointLight(pointLights[i], norm, viewDir, pShadow);
+        }
+
+
+
+        // Spot Lights
+        for(int i = 0; i < nrSpotLights; i++) {
+            result += calcSpotLight(spotLights[i], norm, FragPos, viewDir);
         }
     }
     

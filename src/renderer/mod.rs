@@ -1,5 +1,5 @@
 use crate::config::{rendering as render_cfg, window as win_cfg};
-use crate::light::{DirectionalLight, PointLight};
+use crate::light::{DirectionalLight, PointLight, SpotLight};
 use crate::primitives::Skybox;
 use crate::scene::context::RenderContext;
 use crate::scene::manager::Scene;
@@ -44,6 +44,7 @@ impl Renderer {
         camera: &crate::camera::OrbitCamera,
         light: &DirectionalLight,
         point_lights: &[PointLight],
+        spot_lights: &[SpotLight],
     ) {
         // Shadow Passes
         self.render_shadow_pass(scene, light);
@@ -68,6 +69,7 @@ impl Renderer {
             view_pos: camera.position,
             light,
             point_lights,
+            spot_lights,
             shadow_map: &self.shadow_map,
             point_shadow_maps: &self.point_shadow_maps,
             far_plane: render_cfg::SHADOW_FAR_PLANE,

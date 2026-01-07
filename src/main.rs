@@ -22,12 +22,13 @@ mod ui;
 mod window;
 
 use app::Application;
+use config::window as win_cfg;
 use game::Game;
 use window::GlWindow;
 
 fn main() {
     // 1. Pencereyi ve OpenGL context'ini oluştur
-    let mut window = GlWindow::new("OpenGL Modular Renderer", 1280, 720);
+    let mut window = GlWindow::new(win_cfg::TITLE, win_cfg::WIDTH, win_cfg::HEIGHT);
     window.init_gl();
 
     // 2. Modu oluştur (Context hazır olduğu için shader/buffer yükleyebilir)

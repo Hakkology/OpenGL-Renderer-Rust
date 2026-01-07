@@ -1,3 +1,4 @@
+use crate::config::{rendering as render_cfg, window as win_cfg};
 use crate::light::{DirectionalLight, PointLight};
 use crate::primitives::Skybox;
 use crate::scene::context::RenderContext;
@@ -19,13 +20,11 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(skybox_shader: Rc<Shader>, skybox_cubemap: Rc<CubeMap>) -> Self {
-        // Shadow map (2048x2048 resolution)
-        let shadow_map = ShadowMap::new(2048, 2048);
+        let shadow_map = ShadowMap::new(render_cfg::SHADOW_MAP_SIZE, render_cfg::SHADOW_MAP_SIZE);
 
-        // Point shadow maps (one for each light, 512x512)
         let mut point_shadow_maps = Vec::new();
-        for _ in 0..4 {
-            point_shadow_maps.push(PointShadowMap::new(512));
+        for _ in 0..render_cfg::MAX_POINT_LIGHTS {
+            point_shadow_maps.push(PointShadowMap::new(render_cfg::POINT_SHADOW_SIZE));
         }
 
         Self {
@@ -51,7 +50,8 @@ impl Renderer {
         self.render_point_shadow_pass(scene, point_lights);
 
         // 2. Main Render Setup
-        let projection = camera.projection_matrix(1280.0 / 720.0);
+        let aspect = win_cfg::WIDTH as f32 / win_cfg::HEIGHT as f32;
+        let projection = camera.projection_matrix(aspect);
         let view = camera.view_matrix();
 
         unsafe {
@@ -70,7 +70,7 @@ impl Renderer {
             point_lights,
             shadow_map: &self.shadow_map,
             point_shadow_maps: &self.point_shadow_maps,
-            far_plane: 25.0,
+            far_plane: render_cfg::SHADOW_FAR_PLANE,
             light_space_matrix: self.light_space_matrix,
         };
 
@@ -119,11 +119,11 @@ impl Renderer {
         for obj in &scene.objects {
             obj.render_depth(&self.shadow_map.shader);
         }
-        self.shadow_map.end_pass(1280, 720);
+        self.shadow_map.end_pass(win_cfg::WIDTH, win_cfg::HEIGHT);
     }
 
     fn render_point_shadow_pass(&mut self, scene: &Scene, point_lights: &[PointLight]) {
-        let far_plane = 25.0;
+        let far_plane = render_cfg::SHADOW_FAR_PLANE;
         let light_idx = (self.frame_count % 2) as usize;
 
         for i in 0..2 {
@@ -134,7 +134,7 @@ impl Renderer {
                     for obj in &scene.objects {
                         obj.render_depth(&psm.shader);
                     }
-                    psm.end_pass(1280, 720);
+                    psm.end_pass(win_cfg::WIDTH, win_cfg::HEIGHT);
                 }
             }
         }

@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::assets::paths::{models, names, shaders, textures};
 use crate::assets::AssetManager;
 use crate::camera::OrbitCamera;
+use crate::config::{ui as ui_cfg, window as win_cfg};
 use crate::input::Input;
 use crate::light::{
     components::{Attenuation, LightProperties},
@@ -361,24 +362,27 @@ impl RenderMode for Game {
             .render(&self.scene, &self.camera, &self.light, &self.point_lights);
 
         // 1. Game Specific UI: Top Panel
+        let w = win_cfg::WIDTH as f32;
+        let h = win_cfg::HEIGHT as f32;
+
         self.ui_manager.text_renderer.render_rect(
             &self.ui_manager.ui_rect_shader,
             10.0,
-            660.0,
+            h - 60.0,
             180.0,
             50.0,
-            glam::Vec4::new(0.0, 0.0, 0.0, 0.5),
-            1280.0,
-            720.0,
+            glam::Vec4::new(0.0, 0.0, 0.0, ui_cfg::PANEL_OPACITY),
+            w,
+            h,
         );
         self.ui_manager.text_renderer.render_text(
             "Hakkology",
             20.0,
-            665.0,
+            h - 55.0,
             32.0,
             Vec3::new(1.0, 1.0, 1.0),
-            1280.0,
-            720.0,
+            w,
+            h,
         );
 
         // 2. Game Specific UI: Pause Button
@@ -389,8 +393,8 @@ impl RenderMode for Game {
         pause_btn.draw(
             &self.ui_manager.text_renderer,
             &self.ui_manager.ui_rect_shader,
-            1280.0,
-            720.0,
+            w,
+            h,
         );
 
         // 3. Manager UI (Inspector)
@@ -404,7 +408,7 @@ impl RenderMode for Game {
             let (mx, my) = (self.input.mouse.pos.x, self.input.mouse.pos.y);
 
             // Pause Button
-            if self.pause_button.is_clicked(mx, my, 720.0) {
+            if self.pause_button.is_clicked(mx, my, win_cfg::HEIGHT as f32) {
                 time.toggle_pause();
                 self.is_paused = time.is_paused;
                 return;
@@ -412,7 +416,10 @@ impl RenderMode for Game {
 
             // Inspector Interaction
             if self.selected_object_id.is_some() {
-                let delta = self.ui_manager.inspector.check_clicks(mx, my, 720.0);
+                let delta = self
+                    .ui_manager
+                    .inspector
+                    .check_clicks(mx, my, win_cfg::HEIGHT as f32);
                 if delta != Vec3::ZERO {
                     if let Some(id) = self.selected_object_id {
                         self.apply_transform_delta(id, delta);
@@ -422,7 +429,12 @@ impl RenderMode for Game {
             }
 
             // 3. Scene Selection (Raycast)
-            let ray = self.camera.screen_point_to_ray(mx, my, 1280.0, 720.0);
+            let ray = self.camera.screen_point_to_ray(
+                mx,
+                my,
+                win_cfg::WIDTH as f32,
+                win_cfg::HEIGHT as f32,
+            );
             self.selected_object_id = self.cast_ray(&ray);
             self.check_intersection(&ray); // For debug log
         }

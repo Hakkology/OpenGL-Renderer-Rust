@@ -1,11 +1,3 @@
-//! Application Configuration
-//!
-//! Centralized configuration for camera, rendering, and other game settings.
-//! Modify these values to customize application behavior.
-
-// ============================
-// Window Settings
-// ============================
 pub mod window {
     pub const WIDTH: u32 = 1280;
     pub const HEIGHT: u32 = 720;
@@ -13,9 +5,6 @@ pub mod window {
     pub const VSYNC: bool = true;
 }
 
-// ============================
-// Camera Settings
-// ============================
 pub mod camera {
     use glam::Vec3;
 
@@ -62,9 +51,6 @@ pub mod camera {
     pub const FAR_PLANE: f32 = 3000.0;
 }
 
-// ============================
-// Rendering Settings
-// ============================
 pub mod rendering {
     /// Shadow map resolution
     pub const SHADOW_MAP_SIZE: u32 = 2048;
@@ -76,12 +62,9 @@ pub mod rendering {
     pub const SHADOW_FAR_PLANE: f32 = 25.0;
 
     /// Number of point lights supported
-    pub const MAX_POINT_LIGHTS: usize = 4;
+    pub const MAX_POINT_LIGHTS: usize = 5;
 }
 
-// ============================
-// UI Settings
-// ============================
 pub mod ui {
     /// Font size for text rendering
     pub const FONT_SIZE: f32 = 16.0;

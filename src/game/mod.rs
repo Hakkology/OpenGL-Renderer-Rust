@@ -5,7 +5,10 @@ use std::rc::Rc;
 use crate::camera::OrbitCamera;
 use crate::importer::AssetImporter;
 use crate::input::Input;
-use crate::light::{components::LightProperties, DirectionalLight, PointLight};
+use crate::light::{
+    components::{Attenuation, LightProperties},
+    DirectionalLight, PointLight,
+};
 use crate::math::ray::Ray;
 use crate::primitives::{Capsule, Cube, Plane, Skybox, Sphere};
 use crate::scene::collider::Collider;
@@ -25,16 +28,14 @@ pub trait RenderMode {
 }
 pub struct Game {
     // Scene Objects
-    center_cube: SceneObject3D,
-    green_cube: SceneObject3D,
-    red_cube: SceneObject3D,
-    orbiting_spheres: Vec<SceneObject3D>,
-    capsules: Vec<SceneObject3D>,
-    floor: SceneObject3D,
-    walls: Vec<SceneObject3D>,
-    trees: Vec<SceneObject3D>,
-    xwing: SceneObject3D,
-    statues: Vec<SceneObject3D>,
+    objects: Vec<SceneObject3D>,
+    // Special object IDs for animation/logic
+    green_cube_id: usize,
+    red_cube_id: usize,
+    orbiting_sphere_ids: Vec<usize>,
+    capsule_ids: Vec<usize>,
+    statue_ids: Vec<usize>,
+    xwing_id: usize,
 
     skybox: Skybox,
 
@@ -42,6 +43,7 @@ pub struct Game {
     ui_rect_shader: Rc<Shader>,
     skybox_shader: Rc<Shader>,
 
+    // Textures
     skybox_cubemap: CubeMap,
 
     // UI
@@ -121,7 +123,7 @@ impl Game {
                 .expect("Failed to load skybox cubemap");
         println!("Skybox cubemap loaded.");
 
-        let text_renderer = TextRenderer::new(ui_shader.clone());
+        let text_renderer = TextRenderer::new(ui_shader);
         println!("TextRenderer initialized.");
 
         // Shadow map (2048x2048 resolution)
@@ -176,36 +178,46 @@ impl Game {
             receive_shadows: true,
         });
 
+        let mut objects = Vec::new();
+
         // Create Scene Objects
         let center_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), grass_material.clone())
             .with_name("Center Cube")
             .with_collider(Collider::new_cube(1.0));
+        objects.push(center_cube);
+
         let green_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), green_material.clone())
             .with_name("Green Cube")
             .with_collider(Collider::new_cube(1.0));
+        let green_cube_id = green_cube.id;
+        objects.push(green_cube);
+
         let red_cube = SceneObject3D::new(Box::new(cube_mesh.clone()), red_material.clone())
             .with_name("Red Cube")
             .with_collider(Collider::new_cube(1.0));
+        let red_cube_id = red_cube.id;
+        objects.push(red_cube);
 
-        let mut orbiting_spheres = Vec::new();
+        let mut orbiting_sphere_ids = Vec::new();
         for i in 0..2 {
-            orbiting_spheres.push(
-                SceneObject3D::new(Box::new(sphere_mesh.clone()), stone_material.clone())
-                    .with_name(&format!("Orbiting Sphere {}", i))
-                    .with_collider(Collider::new_sphere(0.6)),
-            );
+            let sphere = SceneObject3D::new(Box::new(sphere_mesh.clone()), stone_material.clone())
+                .with_name(&format!("Orbiting Sphere {}", i))
+                .with_collider(Collider::new_sphere(0.6));
+            orbiting_sphere_ids.push(sphere.id);
+            objects.push(sphere);
         }
 
-        let mut capsules = Vec::new();
+        let mut capsule_ids = Vec::new();
         for i in 0..2 {
-            capsules.push(
+            let capsule =
                 SceneObject3D::new(Box::new(capsule_mesh.clone()), grass_material.clone())
                     .with_name(&format!("Floating Capsule {}", i))
                     .with_collider(Collider::new_box(
                         Vec3::new(-0.4, -1.0, -0.4),
                         Vec3::new(0.4, 1.0, 0.4),
-                    )),
-            );
+                    ));
+            capsule_ids.push(capsule.id);
+            objects.push(capsule);
         }
 
         let mut floor = SceneObject3D::new(Box::new(plane_mesh), grass_material.clone())
@@ -215,9 +227,9 @@ impl Game {
                 Vec3::new(40.0, 0.01, 40.0),
             ));
         floor.transform.position = Vec3::new(0.0, -4.0, 0.0);
+        objects.push(floor);
 
         // Walls
-        let mut walls = Vec::new();
         let wall_height = 8.0;
         let plane_size = 80.0;
         let half_size = plane_size / 2.0;
@@ -241,45 +253,39 @@ impl Game {
             receive_shadows: true,
         });
 
-        // +X Wall (Inner face normal is -X)
         let mut w1 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall +X")
             .with_collider(Collider::new_cube(1.0));
         w1.transform.position = Vec3::new(half_size, -4.0 + wall_height / 2.0, 0.0);
         w1.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
-        walls.push(w1);
+        objects.push(w1);
 
-        // -X Wall (Inner face normal is +X)
         let mut w2 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_x.clone())
             .with_name("Wall -X")
             .with_collider(Collider::new_cube(1.0));
         w2.transform.position = Vec3::new(-half_size, -4.0 + wall_height / 2.0, 0.0);
         w2.transform.scale = Vec3::new(wall_thickness, wall_height, plane_size);
-        walls.push(w2);
+        objects.push(w2);
 
-        // +Z Wall (Inner face normal is -Z)
         let mut w3 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall +Z")
             .with_collider(Collider::new_cube(1.0));
         w3.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, half_size);
         w3.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
-        walls.push(w3);
+        objects.push(w3);
 
-        // -Z Wall (Inner face normal is +Z)
         let mut w4 = SceneObject3D::new(Box::new(cube_mesh.clone()), wall_mat_z.clone())
             .with_name("Wall -Z")
             .with_collider(Collider::new_cube(1.0));
         w4.transform.position = Vec3::new(0.0, -4.0 + wall_height / 2.0, -half_size);
         w4.transform.scale = Vec3::new(plane_size, wall_height, wall_thickness);
-        walls.push(w4);
+        objects.push(w4);
 
         // Load Trees
         let tree2_model = Rc::new(
             AssetImporter::load_model("assets/resources/models/Tree2/trees9.obj")
                 .expect("Failed to load tree2"),
         );
-
-        let mut trees = Vec::new();
         let tree_positions = [Vec3::new(-8.0, -4.0, -8.0), Vec3::new(8.0, -4.0, 8.0)];
 
         for (i, pos) in tree_positions.iter().enumerate() {
@@ -290,10 +296,9 @@ impl Game {
                         Vec3::new(-0.5, 0.0, -0.5),
                         Vec3::new(0.5, 3.0, 0.5),
                     ));
-
             tree.transform.position = *pos;
             tree.transform.scale = Vec3::splat(0.8);
-            trees.push(tree);
+            objects.push(tree);
         }
 
         // Load X-Wing
@@ -301,7 +306,6 @@ impl Game {
             AssetImporter::load_model("assets/resources/models/xwing/x-wing.obj")
                 .expect("Failed to load xwing"),
         );
-
         let grey_material = Rc::new(ColoredMaterial {
             shader: colored_shader.clone(),
             color: Vec3::new(0.7, 0.7, 0.7),
@@ -314,6 +318,8 @@ impl Game {
             .with_collider(Collider::new_sphere(2.0));
         xwing.transform.position = Vec3::new(0.0, 50.0, 10.0);
         xwing.transform.scale = Vec3::splat(1.0);
+        let xwing_id = xwing.id;
+        objects.push(xwing);
 
         // Load Statues
         let statue_model = Rc::new(
@@ -321,12 +327,12 @@ impl Game {
                 .expect("Failed to load statue"),
         );
 
-        let mut statues = Vec::new();
+        let mut statue_ids = Vec::new();
         let statue_configs = [
-            (Vec3::new(0.0, -3.9, 20.0), 180.0f32), // +Z, facing -Z (180 deg Y)
-            (Vec3::new(0.0, -3.9, -20.0), 0.0f32),  // -Z, facing +Z (0 deg Y)
-            (Vec3::new(20.0, -3.9, 0.0), 90.0f32),  // +X, facing -X (90 deg Y)
-            (Vec3::new(-20.0, -3.9, 0.0), -90.0f32), // -X, facing +X (-90 deg Y)
+            (Vec3::new(0.0, -3.9, 20.0), 180.0f32),
+            (Vec3::new(0.0, -3.9, -20.0), 0.0f32),
+            (Vec3::new(20.0, -3.9, 0.0), 90.0f32),
+            (Vec3::new(-20.0, -3.9, 0.0), -90.0f32),
         ];
 
         for (i, (pos, yaw_deg)) in statue_configs.iter().enumerate() {
@@ -337,7 +343,8 @@ impl Game {
             s.transform.scale = Vec3::splat(0.01);
             s.transform.rotation = Quat::from_rotation_y(yaw_deg.to_radians())
                 * Quat::from_rotation_x(-90.0f32.to_radians());
-            statues.push(s);
+            statue_ids.push(s.id);
+            objects.push(s);
         }
 
         // Initialize 4 Point Lights
@@ -350,30 +357,30 @@ impl Game {
         ];
 
         for i in 0..4 {
-            point_lights.push(PointLight::new(
-                Vec3::ZERO, // Position will be updated in update loop
-                LightProperties::new(0.2, 2.5, 3.0, 32.0).with_color(colors[i % 4]),
-            ));
+            point_lights.push(
+                PointLight::new(
+                    Vec3::ZERO, // Position will be updated in update loop
+                    LightProperties::new(0.2, 2.5, 3.0, 32.0).with_color(colors[i % 4]),
+                )
+                .with_attenuation(Attenuation::new(1.0, 0.35, 0.44)), // Increased attenuation for more focused light
+            );
         }
 
         Self {
-            center_cube,
-            green_cube,
-            red_cube,
-            orbiting_spheres,
-            capsules,
-            floor,
-            walls,
-            trees,
-            xwing,
-            statues,
+            objects,
+            green_cube_id,
+            red_cube_id,
+            orbiting_sphere_ids,
+            capsule_ids,
+            statue_ids,
+            xwing_id,
 
             skybox: Skybox::new(),
             ui_rect_shader,
             skybox_shader,
             skybox_cubemap,
 
-            text_renderer: TextRenderer::new(ui_shader),
+            text_renderer,
             pause_button: Button::new("Pause", 1170.0, 660.0, 100.0, 40.0),
 
             input: Input::new(),
@@ -387,58 +394,6 @@ impl Game {
             selected_object_id: None,
             inspector: Inspector::new(1070.0, 500.0),
             frame_count: 0,
-        }
-    }
-
-    fn each_object<F>(&self, mut f: F)
-    where
-        F: FnMut(&SceneObject3D),
-    {
-        f(&self.center_cube);
-        f(&self.green_cube);
-        f(&self.red_cube);
-        f(&self.floor);
-        f(&self.xwing);
-        for obj in &self.orbiting_spheres {
-            f(obj);
-        }
-        for obj in &self.capsules {
-            f(obj);
-        }
-        for obj in &self.walls {
-            f(obj);
-        }
-        for obj in &self.trees {
-            f(obj);
-        }
-        for obj in &self.statues {
-            f(obj);
-        }
-    }
-
-    fn each_object_mut<F>(&mut self, mut f: F)
-    where
-        F: FnMut(&mut SceneObject3D),
-    {
-        f(&mut self.center_cube);
-        f(&mut self.green_cube);
-        f(&mut self.red_cube);
-        f(&mut self.floor);
-        f(&mut self.xwing);
-        for obj in &mut self.orbiting_spheres {
-            f(obj);
-        }
-        for obj in &mut self.capsules {
-            f(obj);
-        }
-        for obj in &mut self.walls {
-            f(obj);
-        }
-        for obj in &mut self.trees {
-            f(obj);
-        }
-        for obj in &mut self.statues {
-            f(obj);
         }
     }
 
@@ -458,7 +413,9 @@ impl Game {
         self.shadow_map
             .set_light_space_matrix(&self.light_space_matrix);
 
-        self.each_object(|obj| obj.render_depth(&self.shadow_map.shader));
+        for obj in &self.objects {
+            obj.render_depth(&self.shadow_map.shader);
+        }
         self.shadow_map.end_pass(1280, 720);
     }
 
@@ -471,7 +428,9 @@ impl Game {
             if let Some(pl) = self.point_lights.get(light_idx) {
                 if let Some(psm) = self.point_shadow_maps.get(light_idx) {
                     psm.begin_pass(pl.position, far_plane);
-                    self.each_object(|obj| obj.render_depth(&psm.shader));
+                    for obj in &self.objects {
+                        obj.render_depth(&psm.shader);
+                    }
                     psm.end_pass(1280, 720);
                 }
             }
@@ -491,7 +450,9 @@ impl Game {
             light_space_matrix: self.light_space_matrix,
         };
 
-        self.each_object(|obj| obj.render(&context));
+        for obj in &self.objects {
+            obj.render(&context);
+        }
     }
 
     fn render_ui(&self) {
@@ -519,11 +480,12 @@ impl Game {
 
         if let Some(id) = self.selected_object_id {
             let mut found = None;
-            self.each_object(|obj| {
+            for obj in &self.objects {
                 if obj.id == id {
                     found = Some((obj.name.clone(), obj.transform.position));
+                    break;
                 }
-            });
+            }
 
             if let Some((name, pos)) = found {
                 self.inspector.draw(
@@ -549,7 +511,7 @@ impl Game {
         };
 
         // Unified Raycasting
-        self.each_object(|obj| {
+        for obj in &self.objects {
             if let Some(dist) = obj
                 .collider
                 .as_ref()
@@ -557,17 +519,18 @@ impl Game {
             {
                 check(dist, obj.id);
             }
-        });
+        }
 
         hit_id
     }
 
     fn apply_transform_delta(&mut self, id: usize, delta: Vec3) {
-        self.each_object_mut(|obj| {
+        for obj in &mut self.objects {
             if obj.id == id {
                 obj.transform.position += delta;
+                break;
             }
-        });
+        }
     }
 
     fn check_intersection(&self, ray: &Ray) {
@@ -582,7 +545,7 @@ impl Game {
             }
         };
 
-        self.each_object(|obj| {
+        for obj in &self.objects {
             if let Some(dist) = obj
                 .collider
                 .as_ref()
@@ -590,7 +553,7 @@ impl Game {
             {
                 check(dist, &obj.name, obj.id);
             }
-        });
+        }
 
         if let Some((name, id)) = hit_object {
             println!(
@@ -605,7 +568,6 @@ impl Game {
 
 impl RenderMode for Game {
     fn update(&mut self, time: &Time) {
-        // self.time += delta_time; // No longer manual accumulation
         let current_time = time.time();
         let delta_time = time.delta_time;
 
@@ -619,58 +581,52 @@ impl RenderMode for Game {
         self.input.reset_delta();
 
         // Animated Objects logic
-        // Orbiting Spheres
-        let configs = [(2.5, 1.2), (4.0, 0.8)];
-        for (i, (radius, speed)) in configs.iter().enumerate() {
-            if i < self.orbiting_spheres.len() {
+        for obj in &mut self.objects {
+            if obj.id == self.green_cube_id {
+                obj.transform.position = Vec3::new(0.0, 2.0, 0.0);
+                obj.transform.rotation = Quat::from_rotation_y(current_time);
+            } else if obj.id == self.red_cube_id {
+                obj.transform.position = Vec3::new(0.0, -2.0, 0.0);
+                obj.transform.rotation = Quat::from_rotation_y(-current_time);
+            } else if let Some(i) = self.orbiting_sphere_ids.iter().position(|&id| id == obj.id) {
+                let configs = [(2.5, 1.2), (4.0, 0.8)];
+                let (radius, speed) = configs[i];
                 let x = (current_time * speed).cos() * radius;
                 let z = (current_time * speed).sin() * radius;
-                self.orbiting_spheres[i].transform.position = Vec3::new(x, 0.0, z);
+                obj.transform.position = Vec3::new(x, 0.0, z);
+            } else if let Some(i) = self.capsule_ids.iter().position(|&id| id == obj.id) {
+                let tilt = 45.0f32.to_radians();
+                let tilt_quat = Quat::from_rotation_z(tilt);
+                let offset = i as f32 * std::f32::consts::PI;
+                let angle = current_time * 0.7 + offset;
+                let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
+                let tilted_pos = tilt_quat.mul_vec3(orbit_pos);
+
+                obj.transform.position = tilted_pos;
+                obj.transform.rotation =
+                    Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
+            } else if obj.id == self.xwing_id {
+                // X-Wing: Slight oscillation
+                obj.transform.position.y = 50.0 + (current_time * 0.5).sin() * 2.0;
             }
         }
 
-        // Green Cube
-        self.green_cube.transform.position = Vec3::new(0.0, 2.0, 0.0);
-        self.green_cube.transform.rotation = Quat::from_rotation_y(current_time);
-
-        // Red Cube
-        self.red_cube.transform.position = Vec3::new(0.0, -2.0, 0.0);
-        self.red_cube.transform.rotation = Quat::from_rotation_y(-current_time);
-
-        // Capsules
-        let tilt = 45.0f32.to_radians();
-        let tilt_quat = Quat::from_rotation_z(tilt);
-
-        for i in 0..2 {
-            if i >= self.capsules.len() {
-                break;
-            }
-            let offset = i as f32 * std::f32::consts::PI;
-            let angle = current_time * 0.7 + offset;
-            let orbit_pos = Vec3::new(angle.cos() * 4.0, 0.0, angle.sin() * 4.0);
-            let tilted_pos = tilt_quat.mul_vec3(orbit_pos);
-
-            self.capsules[i].transform.position = tilted_pos;
-            self.capsules[i].transform.rotation =
-                Quat::from_rotation_y(current_time) * Quat::from_rotation_x(tilt);
-        }
-
-        // Statue Orbiting Light Logic (4 lights around 4 statues)
+        // Update Point Lights based on statue positions
         for i in 0..4 {
-            if i >= self.statues.len() || i >= self.point_lights.len() {
-                break;
+            let s_id = self.statue_ids[i];
+            if let Some(statue) = self.objects.iter().find(|o| o.id == s_id) {
+                let statue_pos = statue.transform.position;
+                let light_radius = 2.0;
+                let light_speed = 1.0;
+                let light_angle =
+                    current_time * light_speed + (i as f32 * std::f32::consts::PI / 2.0);
+
+                let light_x = statue_pos.x + light_angle.cos() * light_radius;
+                let light_z = statue_pos.z + light_angle.sin() * light_radius;
+                let light_y = statue_pos.y + 1.5;
+
+                self.point_lights[i].position = Vec3::new(light_x, light_y, light_z);
             }
-
-            let statue_pos = self.statues[i].transform.position;
-            let light_radius = 2.0;
-            let light_speed = 1.0;
-            let light_angle = current_time * light_speed + (i as f32 * std::f32::consts::PI / 2.0); // Offset phases
-
-            let light_x = statue_pos.x + light_angle.cos() * light_radius;
-            let light_z = statue_pos.z + light_angle.sin() * light_radius;
-            let light_y = statue_pos.y + 1.5;
-
-            self.point_lights[i].position = Vec3::new(light_x, light_y, light_z);
         }
 
         self.frame_count += 1;

@@ -38,7 +38,7 @@ pub mod textures {
 
 pub mod models {
     pub const TREE: &str = "assets/resources/models/Tree2/trees9.obj";
-    pub const XWING: &str = "assets/resources/models/xwing/x-wing.obj";
+    pub const XWING: &str = "assets/resources/models/Xwing/x-wing.obj";
     pub const STATUE: &str = "assets/resources/models/Statue/12334_statue_v1_l3.obj";
 }
 

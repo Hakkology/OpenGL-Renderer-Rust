@@ -51,8 +51,13 @@ impl Program {
         let fs_source = std::fs::read_to_string(fragment_path)
             .map_err(|e| format!("Failed to read fragment shader '{}': {}", fragment_path, e))?;
 
-        let vs = ShaderPart::from_source(&vs_source, ShaderType::Vertex)?;
-        let fs = ShaderPart::from_source(&fs_source, ShaderType::Fragment)?;
+        Self::from_sources(&vs_source, &fs_source)
+    }
+
+    /// Create shader from usage source strings
+    pub fn from_sources(vs_source: &str, fs_source: &str) -> Result<Program, String> {
+        let vs = ShaderPart::from_source(vs_source, ShaderType::Vertex)?;
+        let fs = ShaderPart::from_source(fs_source, ShaderType::Fragment)?;
 
         Self::from_parts(&vs, &fs, None)
     }

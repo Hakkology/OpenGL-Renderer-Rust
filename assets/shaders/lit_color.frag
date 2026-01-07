@@ -201,16 +201,7 @@ void main() {
 
 
         // Point Lights
-        for(int i = 0; i < nrPointLights; i++) {
-            float pShadow = 0.0;
-            if (u_UseShadows != 0) {
-                vec3 lightToFrag = normalize(FragPos - pointLights[i].position);
-                if (dot(norm, -lightToFrag) > 0.0) {
-                    pShadow = calcPointShadow(FragPos, pointLights[i].position, pointShadowMaps[i], 15.0);
-                }
-            }
-            result += calcPointLight(pointLights[i], norm, viewDir, pShadow);
-        }
+        // {{POINT_SHADOW_LOOP}}
 
 
 
